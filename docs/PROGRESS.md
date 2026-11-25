@@ -15,3 +15,5 @@
 - Checkout backend run 45608331157 passed all four integration suites and dependency audit. Added admin APIs, customer suspension, fulfillment/tracking, analytics, catalog extension and local admin bootstrap. New admin tests pending. Refunds, returns, marketing, media upload, full audit trail, MFA, real provider integration and browser QA remain pending.
 
 - Admin UI at /admin: server permission gate, analytics, product creation/edit/archive, taxonomy management, image URL editing, variant stock controls, customer suspend/restore, order fulfillment and captured payment reconciliation, activity log. Customer order details show shipment status. No default admin credentials. Browser tests and new CI pending; refunds/returns, media uploads, marketing, advanced analytics and MFA remain pending.
+
+- Checkout UI run 45608434636 passed all build, migration, test and audit steps. Admin backend run 45608802680 failed compilation on optional Prisma aggregate _sum; corrected optional access and scheduled regression via branch push.

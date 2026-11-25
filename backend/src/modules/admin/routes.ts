@@ -21,7 +21,7 @@ export function adminRoutes(gateway?:Gateway){
    db.orderItem.groupBy({by:['name'],where:{order:{status:'PAID',paidAt:{gte:since}}},_sum:{quantity:true},orderBy:{_sum:{quantity:'desc'}},take:10}),
    db.$queryRaw<{day:string;revenuePaise:bigint;orders:bigint}[]>`SELECT to_char("paidAt",'YYYY-MM-DD') AS day, SUM("totalPaise")::bigint AS "revenuePaise",COUNT(*) AS orders FROM "Order" WHERE status='PAID' AND "paidAt">=${since} GROUP BY 1 ORDER BY 1`
   ],{isolationLevel:Prisma.TransactionIsolationLevel.RepeatableRead});
-  res.json({testMode:true,days,customers,products,variants,lowStock,orders,pending,paid,revenuePaise:revenue._sum.totalPaise??0,top:top.map(x=>({name:x.name,quantity:x._sum.quantity??0})),series:series.map(x=>({day:x.day,revenuePaise:Number(x.revenuePaise),orders:Number(x.orders)}))});
+  res.json({testMode:true,days,customers,products,variants,lowStock,orders,pending,paid,revenuePaise:revenue._sum.totalPaise??0,top:top.map(x=>({name:x.name,quantity:x._sum?.quantity??0})),series:series.map(x=>({day:x.day,revenuePaise:Number(x.revenuePaise),orders:Number(x.orders)}))});
  }));
  router.get('/customers',wrap(async(req,res)=>{
   const {page,q}=pageSchema.parse(req.query);const where:Prisma.UserWhereInput={role:'CUSTOMER',...(q?{OR:[{email:{contains:q,mode:'insensitive'}},{name:{contains:q,mode:'insensitive'}}]}:{})};
