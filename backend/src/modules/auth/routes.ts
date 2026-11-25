@@ -72,6 +72,7 @@ export function authRoutes(origin:string,mail?:Mailer){
     await db.$transaction(async tx=>{
       const row=await tx.authToken.findUnique({where:{tokenHash:digest(token)}});
       if(!row||row.purpose!=='VERIFY_EMAIL'||row.expiresAt<=new Date())throw new HttpError(400,'Invalid or expired link.');
+      await tx.$queryRaw `SELECT "id" FROM "User" WHERE "id" = ${row.userId} FOR UPDATE`;
       const consumed=await tx.authToken.deleteMany({where:{id:row.id,expiresAt:{gt:new Date()}}});
       if(consumed.count!==1)throw new HttpError(400,'Invalid or expired link.');
       await tx.user.update({where:{id:row.userId},data:{emailVerifiedAt:new Date()}});

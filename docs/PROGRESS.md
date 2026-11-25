@@ -43,3 +43,5 @@
 - Progressive View Transition page exit/entry for public catalogue links; reduced-motion opt-out, mouse drag momentum, touch/keyboard gallery controls, mobile filter panel, selected-variant and wishlist microinteractions, checkout step indicator and policy/support styles. No animation delays authentication or checkout. Full visual/performance validation and licensed product imagery remain pending.
 
 - Use React Router data-router host for supported public viewTransition navigation while retaining existing descendant route definitions. Added desktop/mobile public navigation, filters, draft policy and unauthenticated support browser checks. CI pending.
+
+- Run 45611171388 passed all build, migration, API, browser and audit steps. Final QA changes include loopback server bind, request-size handling, consistent account locking, robust API response handling, page metadata and development indexing restrictions, responsive/focus improvements. New CI pending.

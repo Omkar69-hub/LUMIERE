@@ -18,7 +18,7 @@ import { requireUser,requireAdmin } from './modules/auth/session.js';
 import { errorHandler } from './middleware/http.js';
 import type { Mailer } from './config/mail.js';
 export function createApp(origin:string,mailer?:Mailer,gateway?:Gateway){
-  const app=express();app.disable('x-powered-by');app.use(helmet());app.post('/api/payments/webhook',express.raw({type:'application/json',limit:'64kb'}),webhookRoute(gateway));app.use(express.json({limit:'32kb'}));app.use(cookieParser());
+  const app=express();app.disable('x-powered-by');app.use(helmet({strictTransportSecurity:process.env.NODE_ENV==='production'?undefined:false}));app.use('/api',(_req,res,next)=>{res.set('Cache-Control','no-store');next();});app.post('/api/payments/webhook',express.raw({type:'application/json',limit:'64kb'}),webhookRoute(gateway));app.use(express.json({limit:'32kb'}));app.use(cookieParser());
   // Same-origin architecture; no cross-origin credentials. Reject unsafe requests without exact trusted Origin.
   app.use('/api',(req,res,next)=>{
     res.set('Cache-Control','no-store');

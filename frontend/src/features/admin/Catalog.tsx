@@ -5,7 +5,7 @@ import {api} from '../../services/api';
 import {formatPrice} from '../catalog/api';
 import type {Taxonomy,Product,Image} from './types';
 import {useAction,Feedback,Pager,QueryState,money,type Action} from './shared';
-const slugPattern='[a-z0-9]+(-[a-z0-9]+)*';
+const slugPattern='[a-z0-9]+(?:-[a-z0-9]+)*';
 function TaxonomyPanel({kind,uid}:{kind:'categories'|'brands';uid:string}){
  const action=useAction(),query=useQuery({queryKey:['admin',uid,kind],queryFn:()=>api<Taxonomy[]>('/admin/catalog/'+kind)});
  async function create(e:FormEvent<HTMLFormElement>){e.preventDefault();const form=e.currentTarget,data=Object.fromEntries(new FormData(form));if(await action.run('/catalog/'+kind,'POST',data))form.reset();}
