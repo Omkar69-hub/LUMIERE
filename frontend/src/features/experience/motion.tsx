@@ -6,10 +6,10 @@ export function Reveal({children,className=''}:{children:ReactNode;className?:st
  return <div ref={ref} className={'reveal '+className}>{children}</div>;
 }
 export function CollectionRail({children,label}:{children:ReactNode;label:string}){
- const ref=useRef<HTMLDivElement>(null),start=useRef<{x:number;left:number;moved:boolean}|null>(null),block=useRef(false);
- function down(e:PointerEvent<HTMLDivElement>){if(e.pointerType!=='mouse'||e.button!==0)return;start.current={x:e.clientX,left:e.currentTarget.scrollLeft,moved:false};block.current=false;}
- function move(e:PointerEvent<HTMLDivElement>){if(!start.current)return;if(!(e.buttons&1)){start.current=null;return;}const delta=e.clientX-start.current.x;if(Math.abs(delta)>8){start.current.moved=true;block.current=true;e.currentTarget.scrollLeft=start.current.left-delta;}}
- function end(){start.current=null;}
+ const ref=useRef<HTMLDivElement>(null),start=useRef<{x:number;left:number;moved:boolean;lastX:number;lastTime:number;velocity:number}|null>(null),block=useRef(false);
+ function down(e:PointerEvent<HTMLDivElement>){if(e.pointerType!=='mouse'||e.button!==0)return;start.current={x:e.clientX,left:e.currentTarget.scrollLeft,moved:false,lastX:e.clientX,lastTime:performance.now(),velocity:0};block.current=false;}
+ function move(e:PointerEvent<HTMLDivElement>){if(!start.current)return;if(!(e.buttons&1)){start.current=null;return;}const delta=e.clientX-start.current.x;if(Math.abs(delta)>8){const now=performance.now(),dt=Math.max(8,now-start.current.lastTime);start.current.velocity=(start.current.lastX-e.clientX)/dt;start.current.lastX=e.clientX;start.current.lastTime=now;start.current.moved=true;block.current=true;e.currentTarget.scrollLeft=start.current.left-delta;}}
+ function end(e:PointerEvent<HTMLDivElement>){const drag=start.current;start.current=null;if(e.type!=='pointerup'||!drag?.moved||performance.now()-drag.lastTime>100||matchMedia('(prefers-reduced-motion: reduce)').matches)return;const distance=Math.max(-260,Math.min(260,drag.velocity*160));e.currentTarget.scrollBy({left:distance,behavior:'smooth'});}
  function slide(dir:number){const el=ref.current;if(el)el.scrollBy({left:dir*el.clientWidth*.75,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});}
  return <section aria-label={label}><div className="rail-controls"><button type="button" aria-label={'Previous '+label} onClick={()=>slide(-1)}>←</button><button type="button" aria-label={'Next '+label} onClick={()=>slide(1)}>→</button></div><div ref={ref} className="collection-rail" tabIndex={0} onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerLeave={end} onPointerCancel={end} onDragStart={e=>e.preventDefault()} onClickCapture={e=>{if(block.current&&e.detail!==0){e.preventDefault();e.stopPropagation();block.current=false;}}}>{children}</div></section>;
 }

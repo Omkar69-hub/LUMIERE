@@ -39,3 +39,5 @@
 - Added protected Cloudinary media upload structure with server-only credentials, image magic-byte checks, size/rate limits and catalog/campaign UI. Provider credentials and real upload verification pending; no paid services activated.
 
 - Run 45610118247 passed all API and desktop/mobile browser tests, confirming the signup layout-shift correction. Added database-backed customer care tickets and admin replies, owner isolation test, about/FAQ/contact/shipping/returns/privacy/terms routes. Commercial legal policies and service commitments remain unapproved. CI pending.
+
+- Progressive View Transition page exit/entry for public catalogue links; reduced-motion opt-out, mouse drag momentum, touch/keyboard gallery controls, mobile filter panel, selected-variant and wishlist microinteractions, checkout step indicator and policy/support styles. No animation delays authentication or checkout. Full visual/performance validation and licensed product imagery remain pending.
