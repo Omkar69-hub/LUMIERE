@@ -1,0 +1,24 @@
+import 'dotenv/config';
+import {test,after} from 'node:test';
+import {randomUUID} from 'node:crypto';
+import request from 'supertest';
+import {db} from '../src/config/database.js';
+import {createApp} from '../src/app.js';
+import {hashPassword} from '../src/utils/security.js';
+import {decodeSecret,encryptSecret,codeAt} from '../src/modules/auth/totp.js';
+const origin='http://localhost:5173';
+if(!process.env.TEST_DATABASE_URL||process.env.DATABASE_URL!==process.env.TEST_DATABASE_URL)throw new Error('Use isolated test database.');
+process.env.ADMIN_MFA_ENCRYPTION_KEY='ab'.repeat(32);
+const email=randomUUID()+'@example.invalid',password='MFA test password 123',secret=decodeSecret('JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'),app=createApp(origin);
+after(async()=>{await db.user.deleteMany({where:{email}});await db.$disconnect();});
+test('enrolled admin requires MFA; code cannot be reused in a fresh session',async()=>{
+ await db.user.create({data:{email,name:'Test admin',mobile:'9999999999',role:'ADMIN',passwordHash:await hashPassword(password),termsAcceptedAt:new Date(),mfaSecret:encryptSecret(secret)}});
+ const a=request.agent(app),b=request.agent(app);
+ for(const agent of [a,b])await agent.post('/api/auth/login').set('Origin',origin).send({email,password}).expect(200);
+ await a.get('/api/admin/access').expect(403);await a.get('/api/admin/catalog/products').expect(403);
+ const code=codeAt(secret,BigInt(Math.floor(Date.now()/30000)));
+ await a.post('/api/auth/admin-mfa/verify').set('Origin',origin).send({code}).expect(200);
+ await a.get('/api/admin/access').expect(200);
+ await b.post('/api/auth/admin-mfa/verify').set('Origin',origin).send({code}).expect(401);
+ await b.get('/api/admin/access').expect(403);
+});

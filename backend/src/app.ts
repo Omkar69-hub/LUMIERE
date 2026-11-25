@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import {adminCommerce,customerReturns} from './modules/commerce/routes.js';
 import { marketing,adminMarketing } from './modules/marketing/routes.js';
 import { adminRoutes } from './modules/admin/routes.js';
+import {adminMfa} from './modules/auth/mfa.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { orderRoutes,webhookRoute } from './modules/orders/routes.js';
 import type { Gateway } from './modules/payments/gateway.js';
@@ -22,7 +23,7 @@ export function createApp(origin:string,mailer?:Mailer,gateway?:Gateway){
     next();
   });
   app.get('/api/health',(_req,res)=>res.json({status:'ok'}));
-  app.use('/api/auth',authRoutes(origin,mailer));app.use('/api/users',users);app.use('/api/addresses',addresses);
+  app.use('/api/auth/admin-mfa',adminMfa);app.use('/api/auth',authRoutes(origin,mailer));app.use('/api/users',users);app.use('/api/addresses',addresses);
   app.use('/api/orders',orderRoutes(gateway));app.use('/api/cart',cart);app.use('/api/wishlist',wishlist);
   app.use('/api',catalog);app.use('/api/admin/catalog',adminCatalog);
   app.get('/api/admin/access',requireUser,requireAdmin,(_req,res)=>res.json({authorized:true}));

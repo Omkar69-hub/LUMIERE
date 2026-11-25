@@ -1,3 +1,4 @@
+import {mfaRequired} from './totp.js';
 import { db } from '../../config/database.js';
 import { digest,randomToken } from '../../utils/security.js';
 import { wrap,HttpError } from '../../middleware/http.js';
@@ -17,8 +18,8 @@ export async function issue(req:Request,res:Response,userId:string,remember:bool
 }
 export const requireUser=wrap(async(req,res,next)=>{
   const tokenHash=readSession(req);
-  const session=tokenHash?await db.session.findUnique({where:{tokenHash},include:{user:{select:{...publicUser,suspendedAt:true}}}}):null;
+  const session=tokenHash?await db.session.findUnique({where:{tokenHash},include:{user:{select:{...publicUser,suspendedAt:true,mfaSecret:true}}}}):null;
   if(!session||session.user.suspendedAt||session.expiresAt<=new Date())throw new HttpError(401,'Please sign in.');
-  const {suspendedAt:_,...user}=session.user;res.locals.user=user;next();
+  const {suspendedAt:_,mfaSecret,...user}=session.user;res.locals.user=user;res.locals.mfaRequired=mfaRequired(!!mfaSecret);res.locals.mfaVerifiedAt=session.mfaVerifiedAt;next();
 });
-export const requireAdmin=wrap(async(_req,res,next)=>{if(res.locals.user?.role!=='ADMIN')throw new HttpError(403,'Access denied.');next();});
+export const requireAdmin=wrap(async(_req,res,next)=>{if(res.locals.user?.role!=='ADMIN')throw new HttpError(403,'Access denied.');if(res.locals.mfaRequired&&(!res.locals.mfaVerifiedAt||Date.now()-new Date(res.locals.mfaVerifiedAt).getTime()>12*3600000))throw new HttpError(403,'Administrator MFA verification required.');next();});

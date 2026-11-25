@@ -1,0 +1,2 @@
+ALTER TABLE "User" ADD COLUMN "mfaSecret" TEXT, ADD COLUMN "mfaLastCounter" BIGINT;
+ALTER TABLE "Session" ADD COLUMN "mfaVerifiedAt" TIMESTAMP(3);

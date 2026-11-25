@@ -31,3 +31,5 @@
 - Further checkbox investigation: confirmation error previously appeared on blur, shifting later controls during a pointer interaction. Validation now updates during typing instead of blur, alongside explicit stable checkbox hit areas. Earlier pattern-only run 45609743555 also failed both signup journeys. Retest required.
 
 - Catalog mutation audit events added atomically to category/brand create/update/delete, product create/update/publish/archive, imagery, variant creation and stock updates. Product publication now locks the product row to coordinate with image edits. CI pending.
+
+- Added administrator TOTP MFA with encrypted secrets, session-bound verification, replay protection, offline enrollment and integration test. Production enforces enrollment; development retains existing un-enrolled admin workflows unless strict mode enabled. No actual administrator enrollment performed. CI pending.
