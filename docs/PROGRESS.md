@@ -37,3 +37,5 @@
 - Full test-mode refunds added with persistent claim, provider confirmation, manual reconciliation and customer-visible status. Separate from paid order and inventory state. Integration test uses an isolated gateway; real provider sandbox pending.
 
 - Added protected Cloudinary media upload structure with server-only credentials, image magic-byte checks, size/rate limits and catalog/campaign UI. Provider credentials and real upload verification pending; no paid services activated.
+
+- Run 45610118247 passed all API and desktop/mobile browser tests, confirming the signup layout-shift correction. Added database-backed customer care tickets and admin replies, owner isolation test, about/FAQ/contact/shipping/returns/privacy/terms routes. Commercial legal policies and service commitments remain unapproved. CI pending.

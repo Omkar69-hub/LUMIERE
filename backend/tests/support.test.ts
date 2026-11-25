@@ -1,0 +1,24 @@
+import 'dotenv/config';
+import {test,after} from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import request from 'supertest';
+import {db} from '../src/config/database.js';
+import {createApp} from '../src/app.js';
+import {hashPassword} from '../src/utils/security.js';
+const origin='http://localhost:5173',tag=randomUUID(),emails=[tag+'-admin@example.invalid',tag+'-a@example.invalid',tag+'-b@example.invalid'],password='Support test password 123';
+if(!process.env.TEST_DATABASE_URL||process.env.DATABASE_URL!==process.env.TEST_DATABASE_URL)throw new Error('Use isolated test database.');
+const app=createApp(origin),admin=request.agent(app),a=request.agent(app),b=request.agent(app);
+after(async()=>{await db.adminEvent.deleteMany({where:{actor:{email:{in:emails}}}});await db.supportTicket.deleteMany({where:{user:{email:{in:emails}}}});await db.user.deleteMany({where:{email:{in:emails}}});await db.$disconnect();});
+test('support owner isolation and administrator replies',async()=>{
+ const hash=await hashPassword(password);
+ await Promise.all(emails.map((email,i)=>db.user.create({data:{email,name:'Test',mobile:'9999999999',role:i===0?'ADMIN':'CUSTOMER',passwordHash:hash,termsAcceptedAt:new Date()}})));
+ for(const [i,agent] of [admin,a,b].entries())await agent.post('/api/auth/login').set('Origin',origin).send({email:emails[i],password}).expect(200);
+ await request(app).get('/api/support').expect(401);
+ const ticket=(await a.post('/api/support').set('Origin',origin).send({subject:'Test support',message:'Synthetic support request.'}).expect(201)).body;
+ assert.equal((await b.get('/api/support').expect(200)).body.items.length,0);
+ await b.get('/api/admin/support').expect(403);
+ await a.patch('/api/admin/support/'+ticket.id).set('Origin',origin).send({status:'ANSWERED',response:'Test answer'}).expect(403);
+ await admin.patch('/api/admin/support/'+ticket.id).set('Origin',origin).send({status:'ANSWERED',response:'Test answer'}).expect(200);
+ assert.equal((await a.get('/api/support').expect(200)).body.items[0].response,'Test answer');
+});

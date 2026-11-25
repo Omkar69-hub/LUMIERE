@@ -4,11 +4,12 @@ import {Link,Navigate,useNavigate} from 'react-router-dom';
 import {api,ApiError,type User} from '../services/api';
 import {Catalog,Taxonomies} from '../features/admin/Catalog';
 import {Dashboard,Customers,AdminOrders,Audit} from '../features/admin/Operations';
+import {SupportAdmin} from '../features/admin/SupportAdmin';
 import {MfaGate} from '../features/admin/MfaGate';
 import {Commerce} from '../features/admin/Commerce';
 import {Marketing} from '../features/admin/Marketing';
 import '../styles/admin.css';
-const tabs=['Overview','Products','Taxonomy','Customers','Orders','Marketing','Commerce','Activity'] as const;
+const tabs=['Overview','Products','Taxonomy','Customers','Orders','Marketing','Commerce','Support','Activity'] as const;
 type Tab=typeof tabs[number];
 export function Admin(){
  const session=useQuery({queryKey:['session'],queryFn:()=>api<{user:User}>('/users/me'),retry:false,staleTime:0,refetchOnMount:'always'}),uid=session.data?.user.id;
@@ -22,5 +23,5 @@ export function Admin(){
  if(gate.isPending||gate.isFetching)return <main className="page"><p role="status">Checking admin permissions…</p></main>;
  if(gate.error instanceof ApiError&&gate.error.status===403&&gate.error.message.includes('MFA'))return <MfaGate uid={uid}/>;
  if(gate.isError||!gate.data?.authorized)return <main className="page"><h1>Access denied</h1><p>Unable to authorize this administrative session.</p><Link to="/account">Back to account</Link></main>;
- return <main className="admin-shell"><header className="admin-header"><Link className="wordmark" to="/">LUMIÈRE</Link><span>Atelier administration · Test mode</span><div className="admin-actions"><Link to="/account">Account</Link><button disabled={busy} onClick={()=>void logout()}>Sign out</button></div></header><nav className="admin-nav" aria-label="Admin sections">{tabs.map(t=><button key={t} aria-current={tab===t?'page':undefined} onClick={()=>setTab(t)}>{t}</button>)}</nav><div className="admin-body"><p className="eyebrow">PRIVATE OPERATIONS</p><h1>{tab}</h1>{error&&<p role="alert" className="error">{error}</p>}{tab==='Overview'?<Dashboard uid={uid}/>:tab==='Products'?<Catalog uid={uid}/>:tab==='Taxonomy'?<Taxonomies uid={uid}/>:tab==='Customers'?<Customers uid={uid}/>:tab==='Orders'?<AdminOrders uid={uid}/>:tab==='Marketing'?<Marketing uid={uid}/>:tab==='Commerce'?<Commerce uid={uid}/>:<Audit uid={uid}/>}</div></main>;
+ return <main className="admin-shell"><header className="admin-header"><Link className="wordmark" to="/">LUMIÈRE</Link><span>Atelier administration · Test mode</span><div className="admin-actions"><Link to="/account">Account</Link><button disabled={busy} onClick={()=>void logout()}>Sign out</button></div></header><nav className="admin-nav" aria-label="Admin sections">{tabs.map(t=><button key={t} aria-current={tab===t?'page':undefined} onClick={()=>setTab(t)}>{t}</button>)}</nav><div className="admin-body"><p className="eyebrow">PRIVATE OPERATIONS</p><h1>{tab}</h1>{error&&<p role="alert" className="error">{error}</p>}{tab==='Overview'?<Dashboard uid={uid}/>:tab==='Products'?<Catalog uid={uid}/>:tab==='Taxonomy'?<Taxonomies uid={uid}/>:tab==='Customers'?<Customers uid={uid}/>:tab==='Orders'?<AdminOrders uid={uid}/>:tab==='Marketing'?<Marketing uid={uid}/>:tab==='Commerce'?<Commerce uid={uid}/>:tab==='Support'?<SupportAdmin uid={uid}/>:<Audit uid={uid}/>}</div></main>;
 }
