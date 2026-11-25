@@ -20,3 +20,5 @@
     "effect": "3.22.1"
   }
 }
+
+- Added Windows-oriented local installation, isolated test setup, troubleshooting, corrected README status, release QA checklist and IPv4 API proxy consistency. No production approval.

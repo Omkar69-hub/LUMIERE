@@ -1,14 +1,11 @@
 # LUMIÈRE
 
-Luxury fashion e-commerce platform.
+Luxury fashion e-commerce development preview. React/TypeScript/Vite, Express, Prisma and PostgreSQL. INR pricing; Razorpay test mode only.
 
-## Status
-Initial repository setup. No application functionality or security tests have been verified yet.
+## Start here
 
-## Scope
-Responsive editorial storefront, Node.js/TypeScript API, PostgreSQL/Prisma, persistent customer accounts, secure authentication, catalog, cart, wishlist, checkout, Razorpay test-mode integration, admin, and automated tests.
+Read [local setup for Windows and other systems](docs/SETUP.md). For the architecture and endpoints see [API](docs/API.md), [security](docs/SECURITY.md), [QA checklist](docs/QA.md) and [development history](docs/PROGRESS.md).
 
-Authentication is a mandatory release gate, including actual database-backed registration, login, logout, recovery, verification, access control and accessibility. No simulated authentication or payment success.
+The development branch contains the full-stack storefront, persistent accounts, catalog, shopping, checkout, admin, marketing, support and test-mode payment/refund integration. Core CI has passed on earlier commits; verify the current commit in [Actions](https://github.com/Omkar69-hub/LUMIERE/actions). External provider credentials, approved imagery/product data, legal policies and production security review remain outstanding. The site is not deployed or approved for live commerce.
 
-## Development policy
-Use a development branch, preserve working functionality, track migrations, keep credentials out of Git, and do not deploy or enable live payments without explicit approval.
+Never commit credentials, use live payment keys, reset a real database, or deploy without authorization.
