@@ -2,6 +2,7 @@ import express from 'express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { authRoutes } from './modules/auth/routes.js';
+import { cart,wishlist } from './modules/shopping/routes.js';
 import { catalog,adminCatalog } from './modules/catalog/routes.js';
 import { users,addresses } from './modules/users/routes.js';
 import { requireUser,requireAdmin } from './modules/auth/session.js';
@@ -17,6 +18,7 @@ export function createApp(origin:string,mailer?:Mailer){
   });
   app.get('/api/health',(_req,res)=>res.json({status:'ok'}));
   app.use('/api/auth',authRoutes(origin,mailer));app.use('/api/users',users);app.use('/api/addresses',addresses);
+  app.use('/api/cart',cart);app.use('/api/wishlist',wishlist);
   app.use('/api',catalog);app.use('/api/admin/catalog',adminCatalog);
   app.get('/api/admin/access',requireUser,requireAdmin,(_req,res)=>res.json({authorized:true}));
   app.use('/api',(_req,res)=>res.status(404).json({error:'Not found.'}));app.use(errorHandler);

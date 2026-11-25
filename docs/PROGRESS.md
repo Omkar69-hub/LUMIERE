@@ -1,7 +1,7 @@
 # Project progress — 25 November 2026
 
-- Repository initially empty; foundation committed to development.
-- Baseline GitHub Actions run [45606858872](https://github.com/Omkar69-hub/LUMIERE/actions/runs/45606858872) passed frontend/backend builds, PostgreSQL initial migration and one database-backed auth integration test. Test includes registration, duplicate registration, login failure/success, logout, profile/address persistence, CSRF rejection, customer admin rejection, Argon2id and email verification/password reset with a test mailer.
-- Six high severity dependency vulnerabilities reported by npm install. Added explicit audit job; remediation requires package-level report. Not release-ready.
-- New milestone: catalogue models, additive migration, public filtered listing/detail endpoints, protected catalogue management endpoints, storefront shop/detail screens and integration tests. No real products/images have been added. New code awaits verification.
-- Pending: actual SMTP delivery, browser authentication and accessibility checks, further security hardening, fashion imagery, complete design/animations, cart/wishlist, checkout/orders, Razorpay, media storage, full admin, legal policies, deployment approval.
+- Foundation run 45606858872 passed builds, initial migration and auth integration.
+- Run 45607283249 passed builds, both migrations, expanded auth and catalogue tests (2 test suites); audit failed on six high-severity dependencies.
+- Patched dependency versions recommended by npm audit and Prisma 7 migration committed in 4d314ed. Verification pending.
+- Shopping milestone: database-backed authenticated cart and wishlist, owner isolation, authoritative prices, variant stock checks, shopping UI, additive migration, integration test source. CI pending. Cart quantities set absolutely; no inventory reservation or guest cart.
+- Pending: audit and new regression results, actual SMTP, browser accessibility/security testing, licensed images, editorial animations, checkout/orders, payments, media storage, full admin dashboard and legal policies. No deployment.

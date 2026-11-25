@@ -24,3 +24,6 @@ Same-origin JSON requests; unsafe methods must include the configured Origin. Se
 - Admin only: POST /api/admin/catalog/categories, /brands, /products; GET /api/admin/catalog/products; PATCH /api/admin/catalog/products/:id; PATCH /api/admin/catalog/variants/:id/stock.
 - Products start unpublished. Publish requires at least one image and variant. Image URLs must be HTTPS; only approved imagery should be entered.
 - No cart, checkout, payment or complete admin dashboard yet.
+
+## Cart and wishlist
+All routes require a valid customer session. PUT /api/cart/items sets an absolute quantity (1–20) by variant, not an increment. GET /api/cart returns authoritative current INR prices and available-item subtotal. PATCH /api/cart/items/:id sets quantity; DELETE removes an owned item. GET /api/wishlist lists published saved products; PUT and DELETE /api/wishlist/items/:productId save/remove idempotently. Cart and wishlist persist by user; no stock reservation, checkout, shipping or payment is implied. Guest carts not implemented in this milestone.

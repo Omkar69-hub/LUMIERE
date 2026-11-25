@@ -1,0 +1,17 @@
+import { useState } from 'react';
+import { useQuery,useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { api,ApiError,type User } from '../services/api';
+import { getCart,getWishlist } from '../features/shopping/api';
+import { formatPrice } from '../features/catalog/api';
+import { StoreHeader } from '../components/StoreHeader';
+export function Shopping({mode}:{mode:'cart'|'wishlist'}){
+ const client=useQueryClient(),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ const session=useQuery({queryKey:['session'],queryFn:()=>api<{user:User}>('/users/me'),retry:false});
+ const id=session.data?.user.id;
+ const cart=useQuery({queryKey:['cart',id],queryFn:getCart,enabled:!!id&&mode==='cart'});
+ const saved=useQuery({queryKey:['wishlist',id],queryFn:getWishlist,enabled:!!id&&mode==='wishlist'});
+ async function mutate(path:string,method:string,body?:unknown){if(busy)return;setBusy(true);setError('');try{await api(path,method,body);await client.invalidateQueries({queryKey:[mode,id]});}catch(e){setError(e instanceof Error?e.message:'Request failed.');}finally{setBusy(false);}}
+ const query=mode==='cart'?cart:saved;
+ return <main className="store"><StoreHeader/><div className="collection-intro"><p className="eyebrow">YOUR SELECTION</p><h1>{mode==='cart'?'Shopping bag':'Saved pieces'}</h1></div>{session.isPending?<p role="status">Checking your account…</p>:!id?<p>{session.error instanceof ApiError&&session.error.status===401?<Link to="/login">Sign in to view your {mode}.</Link>:'Unable to verify your session.'}</p>:query.isPending?<p role="status">Loading your selection…</p>:query.isError?<p role="alert">{query.error.message}</p>:<>{error&&<p role="alert" className="error">{error}</p>}{mode==='cart'&&cart.data&&<><div className="shopping-list">{cart.data.items.length===0&&<p>Your bag is empty.</p>}{cart.data.items.map(i=><article className="shopping-row" key={i.id}>{i.image&&<img src={i.image.url} alt={i.image.alt} loading="lazy"/>}<div>{i.published?<Link to={'/products/'+i.slug}>{i.name}</Link>:<strong>{i.name}</strong>}<p>{i.size} / {i.color} · {formatPrice(i.pricePaise)}</p><label>Quantity<select value={i.quantity} disabled={busy||i.maxQuantity===0} onChange={e=>void mutate('/cart/items/'+i.id,'PATCH',{quantity:Number(e.target.value)})}>{i.quantity>i.maxQuantity&&<option value={i.quantity}>{i.quantity} (unavailable)</option>}{Array.from({length:i.maxQuantity},(_,n)=><option key={n+1} value={n+1}>{n+1}</option>)}</select></label>{!i.available&&<p role="status" className="error">Quantity unavailable; reduce or remove this item.</p>}<button disabled={busy} onClick={()=>void mutate('/cart/items/'+i.id,'DELETE')}>Remove</button></div><strong>{formatPrice(i.lineTotalPaise)}</strong></article>)}</div><div className="shopping-summary"><h2>Available items subtotal</h2><p>{formatPrice(cart.data.subtotalPaise)}</p><p className="hint">Shipping, discounts and checkout are not yet enabled. Items in your bag do not reserve stock.</p></div></>}{mode==='wishlist'&&saved.data&&<div className="shopping-list">{saved.data.length===0&&<p>No saved pieces yet.</p>}{saved.data.map(i=><article className="shopping-row" key={i.id}>{i.image&&<img src={i.image.url} alt={i.image.alt} loading="lazy"/>}<div><Link to={'/products/'+i.slug}>{i.name}</Link><p>{formatPrice(i.pricePaise)}</p><button disabled={busy} onClick={()=>void mutate('/wishlist/items/'+i.id,'DELETE')}>Remove</button></div></article>)}</div>}<Link to="/shop">Continue exploring</Link></>}</main>;
+}
