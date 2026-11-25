@@ -32,6 +32,12 @@ catalog.get('/products/:slug',wrap(async(req,res)=>{
 export const adminCatalog=Router();
 adminCatalog.use(requireUser,requireAdmin);
 const taxonomy=z.object({name,slug}).strict();
+adminCatalog.get('/categories',wrap(async(_req,res)=>res.json(await db.category.findMany({orderBy:{name:'asc'},include:{_count:{select:{products:true}}}}))));
+adminCatalog.get('/brands',wrap(async(_req,res)=>res.json(await db.brand.findMany({orderBy:{name:'asc'},include:{_count:{select:{products:true}}}}))));
+adminCatalog.patch('/categories/:id',wrap(async(req,res)=>{const id=uuid.parse(req.params.id);const result=await db.category.updateMany({where:{id},data:taxonomy.parse(req.body)});if(!result.count)throw new HttpError(404,'Category not found.');res.json({message:'Category updated.'});}));
+adminCatalog.patch('/brands/:id',wrap(async(req,res)=>{const id=uuid.parse(req.params.id);const result=await db.brand.updateMany({where:{id},data:taxonomy.parse(req.body)});if(!result.count)throw new HttpError(404,'Brand not found.');res.json({message:'Brand updated.'});}));
+adminCatalog.delete('/categories/:id',wrap(async(req,res)=>{const result=await db.category.deleteMany({where:{id:uuid.parse(req.params.id),products:{none:{}}}});if(!result.count)throw new HttpError(409,'Category missing or in use.');res.status(204).end();}));
+adminCatalog.delete('/brands/:id',wrap(async(req,res)=>{const result=await db.brand.deleteMany({where:{id:uuid.parse(req.params.id),products:{none:{}}}});if(!result.count)throw new HttpError(409,'Brand missing or in use.');res.status(204).end();}));
 adminCatalog.post('/categories',wrap(async(req,res)=>res.status(201).json(await db.category.create({data:taxonomy.parse(req.body)}))));
 adminCatalog.post('/brands',wrap(async(req,res)=>res.status(201).json(await db.brand.create({data:taxonomy.parse(req.body)}))));
 adminCatalog.get('/products',wrap(async(req,res)=>{const v=z.object({page:z.coerce.number().int().min(1).max(1000).default(1)}).strict().parse(req.query);res.json(await db.product.findMany({include,orderBy:[{createdAt:'desc'},{id:'asc'}],take:25,skip:(v.page-1)*25}));}));
@@ -43,13 +49,27 @@ adminCatalog.post('/products',wrap(async(req,res)=>{
 }));
 adminCatalog.patch('/products/:id',wrap(async(req,res)=>{
   const id=uuid.parse(req.params.id);
-  const data=z.object({name:name.optional(),description:z.string().trim().min(1).max(4000).optional(),pricePaise:z.number().int().min(1).max(100000000).optional(),published:z.boolean().optional()}).strict().parse(req.body);
+  const data=z.object({name:name.optional(),description:z.string().trim().min(1).max(4000).optional(),pricePaise:z.number().int().min(1).max(100000000).optional(),published:z.boolean().optional(),categoryId:uuid.optional(),brandId:uuid.optional()}).strict().parse(req.body);
   const row=await db.product.findUnique({where:{id},include:{_count:{select:{images:true,variants:true}}}});
   if(!row)throw new HttpError(404,'Product not found.');
   if(data.published&&(row._count.images===0||row._count.variants===0))throw new HttpError(400,'A product needs imagery and variants before publication.');
+  if(data.categoryId&&!(await db.category.findUnique({where:{id:data.categoryId}})))throw new HttpError(400,'Unknown category.');
+  if(data.brandId&&!(await db.brand.findUnique({where:{id:data.brandId}})))throw new HttpError(400,'Unknown brand.');
   res.json(await db.product.update({where:{id},data,include}));
 }));
 adminCatalog.patch('/variants/:id/stock',wrap(async(req,res)=>{
-  const id=uuid.parse(req.params.id),data=z.object({stock:z.number().int().min(0).max(1000000)}).strict().parse(req.body);
-  const updated=await db.productVariant.updateMany({where:{id},data});if(!updated.count)throw new HttpError(404,'Variant not found.');res.json({message:'Stock updated.'});
+  const id=uuid.parse(req.params.id),data=z.object({stock:z.number().int().min(0).max(1000000),expectedStock:z.number().int().min(0).optional()}).strict().parse(req.body);
+  const updated=await db.productVariant.updateMany({where:{id,...(data.expectedStock===undefined?{}:{stock:data.expectedStock})},data:{stock:data.stock}});if(!updated.count)throw new HttpError(409,'Stock changed or variant missing. Refresh and retry.');res.json({message:'Stock updated.'});
+}));
+
+adminCatalog.get('/products/:id',wrap(async(req,res)=>{const p=await db.product.findUnique({where:{id:uuid.parse(req.params.id)},include});if(!p)throw new HttpError(404,'Product not found.');res.json(p);}));
+adminCatalog.put('/products/:id/images',wrap(async(req,res)=>{
+ const id=uuid.parse(req.params.id),images=product.shape.images.parse(req.body);
+ await db.$transaction(async tx=>{await tx.$queryRaw `SELECT "id" FROM "Product" WHERE "id" = ${id} FOR UPDATE`;const p=await tx.product.findUnique({where:{id}});if(!p)throw new HttpError(404,'Product not found.');if(p.published&&!images.length)throw new HttpError(409,'Unpublish before removing all images.');await tx.productImage.deleteMany({where:{productId:id}});await tx.productImage.createMany({data:images.map((img,position)=>({...img,productId:id,position}))});});res.json({message:'Images updated.'});
+}));
+adminCatalog.post('/products/:id/variants',wrap(async(req,res)=>{const productId=uuid.parse(req.params.id),data=variant.parse(req.body);if(!(await db.product.findUnique({where:{id:productId}})))throw new HttpError(404,'Product not found.');res.status(201).json(await db.productVariant.create({data:{...data,productId}}));}));
+adminCatalog.delete('/products/:id',wrap(async(req,res)=>{
+ const id=uuid.parse(req.params.id);
+ // Preserve historical order and cart references. Archive rather than hard delete.
+ const result=await db.product.updateMany({where:{id},data:{published:false}});if(!result.count)throw new HttpError(404,'Product not found.');res.json({message:'Product archived (unpublished).'});
 }));

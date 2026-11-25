@@ -32,7 +32,7 @@ export function authRoutes(origin:string,mail?:Mailer){
   router.post('/login',authLimit,wrap(async(req,res)=>{
     const v=login.parse(req.body), user=await db.user.findUnique({where:{email:v.email}});
     const ok=await verifyPassword(user?.passwordHash??await dummy,v.password);
-    if(!user||!ok)throw new HttpError(401,'Invalid email or password.');
+    if(!user||!ok||user.suspendedAt)throw new HttpError(401,'Invalid email or password.');
     await issue(req,res,user.id,v.remember,user.passwordHash);
     res.json({user:{id:user.id,name:user.name,email:user.email,mobile:user.mobile,role:user.role,emailVerifiedAt:user.emailVerifiedAt}});
   }));
@@ -43,7 +43,7 @@ export function authRoutes(origin:string,mail?:Mailer){
     if(!mail)throw new HttpError(503,'Email recovery is not configured.');
     const user=await db.user.findUnique({where:{email:address}});
     // Never expose per-account delivery errors in the response.
-    if(user){try{await send(user.id,address,'RESET_PASSWORD');}catch{/* Generic response prevents enumeration. */}}
+    if(user&&!user.suspendedAt){try{await send(user.id,address,'RESET_PASSWORD');}catch{/* Generic response prevents enumeration. */}}
     res.status(202).json(generic);
   }));
   router.post('/resend-verification',recoveryLimit,requireUser,wrap(async(_req,res)=>{

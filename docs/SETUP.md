@@ -13,3 +13,6 @@ For tests, provision a separate PostgreSQL database, set both DATABASE_URL and T
 
 ## Razorpay sandbox
 Use test keys only. Configure RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET and RAZORPAY_WEBHOOK_SECRET in backend/.env (never commit actual secrets). Enable automatic capture in the Razorpay test dashboard. Configure payment.captured webhook at an approved HTTPS test endpoint /api/payments/webhook. No live keys, no production deployment. Verify an email address and create a test product/address to exercise checkout. Test shipping is zero. If setup enters REVIEW/CREATING or an unpaid provider order remains open, stock remains reserved; reconciliation is mandatory before release. The automated suite injects an isolated test gateway, not a real transaction. Production CSP, capture/reconciliation, refunds, taxes, shipping and security review are pending.
+
+## Administrator setup
+After migrations and client generation (npm run build), securely set ADMIN_EMAIL, ADMIN_NAME, ADMIN_MOBILE, ADMIN_PASSWORD (16+ characters) in your local shell environment and run npm run admin:create -w backend. No default account or password exists. Clear those environment variables immediately; do not commit them. Sign in normally and open /admin. The command refuses an existing email and cannot promote customers. Use synthetic accounts in development.

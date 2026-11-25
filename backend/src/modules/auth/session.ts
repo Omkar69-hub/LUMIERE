@@ -10,17 +10,15 @@ export async function revoke(req:Request,res:Response){const tokenHash=readSessi
 export async function issue(req:Request,res:Response,userId:string,remember:boolean,expectedHash?:string){
   const previous=readSession(req), token=randomToken(), ttl=(remember?30:1)*86400000;
   await db.$transaction(async tx=>{
-    if(expectedHash!==undefined){
-      const rows=await tx.$queryRaw<{passwordHash:string}[]> `SELECT "passwordHash" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
-      if(rows[0]?.passwordHash!==expectedHash)throw new HttpError(401,'Invalid email or password.');
-    }
+    const rows=await tx.$queryRaw<{passwordHash:string;suspendedAt:Date|null}[]> `SELECT "passwordHash","suspendedAt" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
+    if(!rows[0]||rows[0].suspendedAt||(expectedHash!==undefined&&rows[0].passwordHash!==expectedHash))throw new HttpError(401,'Invalid email or password.');
     if(previous)await tx.session.deleteMany({where:{tokenHash:previous}});await tx.session.create({data:{userId,tokenHash:digest(token),expiresAt:new Date(Date.now()+ttl)}});});
   res.cookie(cookieName(),token,{...cookieOptions(),...(remember?{maxAge:ttl}:{})});
 }
 export const requireUser=wrap(async(req,res,next)=>{
   const tokenHash=readSession(req);
-  const session=tokenHash?await db.session.findUnique({where:{tokenHash},include:{user:{select:publicUser}}}):null;
-  if(!session||session.expiresAt<=new Date())throw new HttpError(401,'Please sign in.');
-  res.locals.user=session.user;next();
+  const session=tokenHash?await db.session.findUnique({where:{tokenHash},include:{user:{select:{...publicUser,suspendedAt:true}}}}):null;
+  if(!session||session.user.suspendedAt||session.expiresAt<=new Date())throw new HttpError(401,'Please sign in.');
+  const {suspendedAt:_,...user}=session.user;res.locals.user=user;next();
 });
 export const requireAdmin=wrap(async(_req,res,next)=>{if(res.locals.user?.role!=='ADMIN')throw new HttpError(403,'Access denied.');next();});

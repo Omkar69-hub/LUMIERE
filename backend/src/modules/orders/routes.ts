@@ -7,7 +7,7 @@ import { requireUser } from '../auth/session.js';
 import type { Gateway,GatewayPayment } from '../payments/gateway.js';
 const uuid=z.string().uuid();
 const orderInclude={items:true} as const;
-const publicOrder=(o:Prisma.OrderGetPayload<{include:typeof orderInclude}>)=>({id:o.id,status:o.status,gatewayState:o.gatewayState,subtotalPaise:o.subtotalPaise,shippingPaise:o.shippingPaise,totalPaise:o.totalPaise,address:o.addressSnapshot,items:o.items,createdAt:o.createdAt,paidAt:o.paidAt});
+const publicOrder=(o:Prisma.OrderGetPayload<{include:typeof orderInclude}>)=>({id:o.id,status:o.status,gatewayState:o.gatewayState,fulfillment:o.fulfillment,trackingNumber:o.trackingNumber,carrier:o.carrier,subtotalPaise:o.subtotalPaise,shippingPaise:o.shippingPaise,totalPaise:o.totalPaise,address:o.addressSnapshot,items:o.items,createdAt:o.createdAt,paidAt:o.paidAt});
 const verified=(res:{locals:Record<string,any>})=>{if(!res.locals.user.emailVerifiedAt)throw new HttpError(403,'Verify your email before checkout.');};
 const shipping=0; // Explicit development/test policy only; change before release.
 export async function confirmPayment(payment:GatewayPayment,eventId?:string){
@@ -34,7 +34,8 @@ export function orderRoutes(gateway?:Gateway){
   verified(res);if(!gateway)throw new HttpError(503,'Test payments are not configured.');
   const {addressId,requestKey,expectedTotalPaise}=z.object({addressId:uuid,requestKey:uuid,expectedTotalPaise:z.number().int().min(1).max(2000000000)}).strict().parse(req.body),userId:string=res.locals.user.id;
   const o=await db.$transaction(async tx=>{
-   await tx.$queryRaw `SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
+   const account=await tx.$queryRaw<{suspendedAt:Date|null}[]> `SELECT "suspendedAt" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
+   if(!account[0]||account[0].suspendedAt)throw new HttpError(401,'Please sign in.');
    const existing=await tx.order.findUnique({where:{userId_requestKey:{userId,requestKey}},include:orderInclude});if(existing)return existing;
    const outstanding=await tx.order.count({where:{userId,status:'PENDING_PAYMENT'}});if(outstanding>=1)throw new HttpError(409,'Resolve your existing pending order before creating another.');
    const address=await tx.address.findFirst({where:{id:addressId,userId}});if(!address)throw new HttpError(404,'Address not found.');
