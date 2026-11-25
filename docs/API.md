@@ -33,3 +33,6 @@ GET /api/orders/configuration; GET /api/orders?page=1; GET /api/orders/:id; POST
 
 ## Admin console
 All /api/admin endpoints require an authenticated server-side ADMIN role. GET /overview?days=30 (test-only paid analytics), /customers?page=1&q=, /customers/:id, /orders?page=1&status=, /orders/:id, /events; PATCH /customers/:id/status {suspended}; PATCH /orders/:id/fulfillment {status,carrier?,trackingNumber?}; POST /orders/:id/cancel (unstarted only); POST /orders/:id/reconcile {paymentId} (provider fetch required). Catalog additions: GET/PATCH/DELETE categories and brands, GET products/:id, PUT products/:id/images, POST products/:id/variants, DELETE products/:id (unpublish), PATCH variants/:id/stock supports expectedStock. No arbitrary payment-status mutation or role escalation. Returns/refunds and marketing remain pending.
+
+## Marketing
+GET /api/marketing/campaign serves the saved homepage campaign or original default editorial copy. POST /api/marketing/newsletter records explicit consent, idempotently, without sending mail. Protected /api/admin/marketing endpoints: GET/PUT /campaign, GET /products?page=1, PATCH /products/:id {featured}, GET /newsletter (count only). Public catalogue supports featured=true. Mailing delivery and consent withdrawal workflow require policy and provider setup; no subscriber export or sending endpoint.

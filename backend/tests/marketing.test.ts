@@ -1,0 +1,24 @@
+import 'dotenv/config';
+import {test,after} from 'node:test';
+import assert from 'node:assert/strict';
+import request from 'supertest';
+import {randomUUID} from 'node:crypto';
+import {db} from '../src/config/database.js';
+import {createApp} from '../src/app.js';
+import {hashPassword} from '../src/utils/security.js';
+const origin='http://localhost:5173';
+if(!process.env.TEST_DATABASE_URL||process.env.DATABASE_URL!==process.env.TEST_DATABASE_URL)throw new Error('Use isolated test database.');
+const tag=randomUUID(),email=tag+'@example.invalid',password='Marketing fixture password 123',app=createApp(origin),admin=request.agent(app);
+after(async()=>{await db.adminEvent.deleteMany({where:{actor:{email}}});await db.user.deleteMany({where:{email}});await db.newsletterSubscriber.deleteMany({where:{email}});await db.storeCampaign.deleteMany({where:{id:'home',headline:tag}});await db.$disconnect();});
+test('campaign management and explicit newsletter consent',async()=>{
+ await db.user.create({data:{email,name:'Marketing fixture',mobile:'9999999999',role:'ADMIN',passwordHash:await hashPassword(password),termsAcceptedAt:new Date()}});
+ await request(app).get('/api/admin/marketing/newsletter').expect(401);
+ await admin.post('/api/auth/login').set('Origin',origin).send({email,password}).expect(200);
+ const data={announcement:'The edit',headline:tag,description:'Campaign test',imageUrl:null,imageAlt:null};
+ await admin.put('/api/admin/marketing/campaign').set('Origin',origin).send(data).expect(200);
+ assert.equal((await request(app).get('/api/marketing/campaign').expect(200)).body.headline,tag);
+ await request(app).post('/api/marketing/newsletter').set('Origin',origin).send({email,consent:false}).expect(400);
+ for(let i=0;i<2;i++)await request(app).post('/api/marketing/newsletter').set('Origin',origin).send({email,consent:true}).expect(202);
+ assert.equal(await db.newsletterSubscriber.count({where:{email}}),1);
+ assert.equal((await admin.get('/api/admin/marketing/newsletter').expect(200)).body.deliveryEnabled,false);
+});

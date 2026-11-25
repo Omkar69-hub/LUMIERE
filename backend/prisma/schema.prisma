@@ -89,6 +89,7 @@ model Product {
   description String
   pricePaise Int
   published Boolean @default(false)
+  featured Boolean @default(false)
   categoryId String
   brandId String
   category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
@@ -215,4 +216,18 @@ model AdminEvent {
   createdAt DateTime @default(now())
   actor User @relation(fields:[actorId],references:[id],onDelete:Restrict)
   @@index([createdAt])
+}
+
+model StoreCampaign {
+  id String @id
+  announcement String
+  headline String
+  description String
+  imageUrl String?
+  imageAlt String?
+  updatedAt DateTime @updatedAt
+}
+model NewsletterSubscriber {
+  email String @id
+  consentAt DateTime @default(now())
 }

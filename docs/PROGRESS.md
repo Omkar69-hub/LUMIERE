@@ -17,3 +17,5 @@
 - Admin UI at /admin: server permission gate, analytics, product creation/edit/archive, taxonomy management, image URL editing, variant stock controls, customer suspend/restore, order fulfillment and captured payment reconciliation, activity log. Customer order details show shipment status. No default admin credentials. Browser tests and new CI pending; refunds/returns, media uploads, marketing, advanced analytics and MFA remain pending.
 
 - Checkout UI run 45608434636 passed all build, migration, test and audit steps. Admin backend run 45608802680 failed compilation on optional Prisma aggregate _sum; corrected optional access and scheduled regression via branch push.
+
+- Run 45609026261 passed corrected admin build, migrations, tests and audit. Added admin-controlled homepage campaign, featured product curation and newsletter interest registration with explicit consent, database migration and integration test. Newsletter delivery remains disabled. Coupon, return/refund, full catalog audit, media upload and MFA remain pending.

@@ -1,6 +1,7 @@
 import express from 'express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import { marketing,adminMarketing } from './modules/marketing/routes.js';
 import { adminRoutes } from './modules/admin/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { orderRoutes,webhookRoute } from './modules/orders/routes.js';
@@ -24,6 +25,7 @@ export function createApp(origin:string,mailer?:Mailer,gateway?:Gateway){
   app.use('/api/orders',orderRoutes(gateway));app.use('/api/cart',cart);app.use('/api/wishlist',wishlist);
   app.use('/api',catalog);app.use('/api/admin/catalog',adminCatalog);
   app.get('/api/admin/access',requireUser,requireAdmin,(_req,res)=>res.json({authorized:true}));
+  app.use('/api/marketing',marketing);app.use('/api/admin/marketing',adminMarketing);
   app.use('/api/admin',adminRoutes(gateway));
   app.use('/api',(_req,res)=>res.status(404).json({error:'Not found.'}));app.use(errorHandler);
   return app;
