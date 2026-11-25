@@ -49,3 +49,5 @@
 - Browser QA now targets built frontend preview, requires isolated database environment, adds real admin publish/customer shopping/support journey and public route metadata/overflow/focus assertions. CI uploads synthetic screenshot evidence; external payment remains disabled. New CI pending.
 
 - Added Windows-oriented local installation, isolated test setup, troubleshooting, corrected README status, release QA checklist and IPv4 API proxy consistency. Corrected accidental progress note appended to package.json; JSON manifest validated before commit.
+
+- Hardened build run 45611604449 passed 11 API and 6 browser tests. Added secondary-route lazy loading and initial gzip bundle budget, with CI regression check. Pending combined browser and bundle verification.

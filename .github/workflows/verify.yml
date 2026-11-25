@@ -33,6 +33,7 @@ jobs:
           node-version: '22'
       - run: npm install
       - run: npm run build
+      - run: npm run check:bundle
       - run: npm run db:migrate
       - run: npm test
       - name: Install Chromium for browser QA

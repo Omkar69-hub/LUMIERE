@@ -15,3 +15,6 @@ Baseline run 45611171388 passed builds, migrations, API suites, desktop/mobile b
 - Verify HTTPS production cookies/CSP, trusted reverse proxy settings, rate limits across instances, backups and restore, secret rotation, admin MFA enrollment and recovery, security review.
 - Finalize merchant identity, privacy/data retention/rights, consent withdrawal, commercial tax/shipping/returns policies, support operations and licensed product assets.
 - Reproducible dependency lockfile, deployment configuration and indexing approval required before release. No deployment authorized.
+
+## Bundle budget
+Baseline hardened build run 45611604449: main JS 130.85 kB gzip, main CSS 6.06 kB gzip, 11 backend tests and 6 browser tests passed. Lazy secondary pages and manifest-based initial asset budget (150 KiB gzip JS, 30 KiB CSS) added to CI. Not a Core Web Vitals score. New results pending.
