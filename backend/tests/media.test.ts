@@ -1,0 +1,23 @@
+import 'dotenv/config';
+import {test,after} from 'node:test';
+import assert from 'node:assert/strict';
+import request from 'supertest';
+import {randomUUID} from 'node:crypto';
+import {db} from '../src/config/database.js';
+import {createApp} from '../src/app.js';
+import {hashPassword} from '../src/utils/security.js';
+import {imageType} from '../src/modules/media/routes.js';
+const origin='http://localhost:5173',email=randomUUID()+'@example.invalid',password='Media test password 123';
+if(!process.env.TEST_DATABASE_URL||process.env.DATABASE_URL!==process.env.TEST_DATABASE_URL)throw new Error('Use isolated test database.');
+delete process.env.CLOUDINARY_CLOUD_NAME;
+const app=createApp(origin),admin=request.agent(app);
+after(async()=>{await db.user.deleteMany({where:{email}});await db.$disconnect();});
+test('media authorization, disabled integration and format detection',async()=>{
+ assert.equal(imageType(Buffer.from('not an image')),null);
+ assert.equal(imageType(Buffer.from([137,80,78,71,13,10,26,10])),'image/png');
+ await request(app).get('/api/admin/media/configuration').expect(401);
+ await db.user.create({data:{email,name:'Test admin',mobile:'9999999999',role:'ADMIN',passwordHash:await hashPassword(password),termsAcceptedAt:new Date()}});
+ await admin.post('/api/auth/login').set('Origin',origin).send({email,password}).expect(200);
+ assert.equal((await admin.get('/api/admin/media/configuration').expect(200)).body.enabled,false);
+ await admin.post('/api/admin/media/upload').set('Origin',origin).set('Content-Type','image/png').send(Buffer.from([137,80,78,71,13,10,26,10])).expect(503);
+});

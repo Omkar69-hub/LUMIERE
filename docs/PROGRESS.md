@@ -35,3 +35,5 @@
 - Added administrator TOTP MFA with encrypted secrets, session-bound verification, replay protection, offline enrollment and integration test. Production enforces enrollment; development retains existing un-enrolled admin workflows unless strict mode enabled. No actual administrator enrollment performed. CI pending.
 
 - Full test-mode refunds added with persistent claim, provider confirmation, manual reconciliation and customer-visible status. Separate from paid order and inventory state. Integration test uses an isolated gateway; real provider sandbox pending.
+
+- Added protected Cloudinary media upload structure with server-only credentials, image magic-byte checks, size/rate limits and catalog/campaign UI. Provider credentials and real upload verification pending; no paid services activated.
