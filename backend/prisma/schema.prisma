@@ -185,6 +185,7 @@ model Order {
   user User @relation(fields:[userId],references:[id],onDelete:Restrict)
   items OrderItem[]
   returnRequest ReturnRequest?
+  refund Refund?
   @@unique([userId,requestKey])
   @@index([userId,createdAt])
 }
@@ -262,4 +263,22 @@ model ReturnRequest {
   updatedAt DateTime @updatedAt
   order Order @relation(fields:[orderId],references:[id],onDelete:Restrict)
   @@index([status,createdAt])
+}
+
+enum RefundStatus {
+  CREATING
+  PENDING
+  PROCESSED
+  FAILED
+  REVIEW
+}
+model Refund {
+  id String @id @default(uuid())
+  orderId String @unique
+  amountPaise Int
+  status RefundStatus @default(CREATING)
+  providerRefundId String? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  order Order @relation(fields:[orderId],references:[id],onDelete:Restrict)
 }

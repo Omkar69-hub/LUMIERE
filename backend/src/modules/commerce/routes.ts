@@ -25,8 +25,8 @@ adminCommerce.patch('/returns/:id',wrap(async(req,res)=>{
 export const customerReturns=Router();customerReturns.use(requireUser);
 customerReturns.get('/:orderId',wrap(async(req,res)=>{
  const orderId=uuid.parse(req.params.orderId);
- const order=await db.order.findFirst({where:{id:orderId,userId:res.locals.user.id},select:{id:true,returnRequest:true}});if(!order)throw new HttpError(404,'Order not found.');
- res.json({request:order.returnRequest});
+ const order=await db.order.findFirst({where:{id:orderId,userId:res.locals.user.id},select:{id:true,returnRequest:true,refund:{select:{status:true,amountPaise:true}}}});if(!order)throw new HttpError(404,'Order not found.');
+ res.json({request:order.returnRequest,refund:order.refund});
 }));
 customerReturns.post('/:orderId',wrap(async(req,res)=>{
  const orderId=uuid.parse(req.params.orderId),{reason}=z.object({reason:z.string().trim().min(5).max(500)}).strict().parse(req.body);

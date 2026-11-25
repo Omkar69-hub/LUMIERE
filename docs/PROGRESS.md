@@ -33,3 +33,5 @@
 - Catalog mutation audit events added atomically to category/brand create/update/delete, product create/update/publish/archive, imagery, variant creation and stock updates. Product publication now locks the product row to coordinate with image edits. CI pending.
 
 - Added administrator TOTP MFA with encrypted secrets, session-bound verification, replay protection, offline enrollment and integration test. Production enforces enrollment; development retains existing un-enrolled admin workflows unless strict mode enabled. No actual administrator enrollment performed. CI pending.
+
+- Full test-mode refunds added with persistent claim, provider confirmation, manual reconciliation and customer-visible status. Separate from paid order and inventory state. Integration test uses an isolated gateway; real provider sandbox pending.
