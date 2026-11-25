@@ -19,3 +19,5 @@
 - Checkout UI run 45608434636 passed all build, migration, test and audit steps. Admin backend run 45608802680 failed compilation on optional Prisma aggregate _sum; corrected optional access and scheduled regression via branch push.
 
 - Run 45609026261 passed corrected admin build, migrations, tests and audit. Added admin-controlled homepage campaign, featured product curation and newsletter interest registration with explicit consent, database migration and integration test. Newsletter delivery remains disabled. Coupon, return/refund, full catalog audit, media upload and MFA remain pending.
+
+- Editorial homepage and premium design tokens, mobile navigation, accessible native search/menu dialogs, scroll-entry/mask/parallax effects, pauseable marquee, drag/touch/keyboard collection rails, real category/new/featured product queries, campaign art and newsletter form. Original SVG textile study is temporary creative artwork, not fashion photography. Approved campaign photograph can be provided through admin marketing. No fabricated product or trend data. Route entry animation and lazy admin bundle included; browser QA pending.

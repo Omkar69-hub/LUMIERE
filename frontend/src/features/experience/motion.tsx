@@ -1,0 +1,17 @@
+import {useEffect,useRef,useState,type ReactNode,type PointerEvent} from 'react';
+export function Reveal({children,className=''}:{children:ReactNode;className?:string}){
+ const ref=useRef<HTMLDivElement>(null);
+ useEffect(()=>{const el=ref.current;if(!el||!('IntersectionObserver'in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+ const obs=new IntersectionObserver(entries=>{if(entries.some(x=>x.isIntersecting)){el.classList.add('has-entered');obs.disconnect();}},{threshold:.12});obs.observe(el);return()=>obs.disconnect();},[]);
+ return <div ref={ref} className={'reveal '+className}>{children}</div>;
+}
+export function CollectionRail({children,label}:{children:ReactNode;label:string}){
+ const ref=useRef<HTMLDivElement>(null),start=useRef<{x:number;left:number;moved:boolean}|null>(null),block=useRef(false);
+ function down(e:PointerEvent<HTMLDivElement>){if(e.pointerType!=='mouse'||e.button!==0)return;start.current={x:e.clientX,left:e.currentTarget.scrollLeft,moved:false};block.current=false;}
+ function move(e:PointerEvent<HTMLDivElement>){if(!start.current)return;if(!(e.buttons&1)){start.current=null;return;}const delta=e.clientX-start.current.x;if(Math.abs(delta)>8){start.current.moved=true;block.current=true;e.currentTarget.scrollLeft=start.current.left-delta;}}
+ function end(){start.current=null;}
+ function slide(dir:number){const el=ref.current;if(el)el.scrollBy({left:dir*el.clientWidth*.75,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});}
+ return <section aria-label={label}><div className="rail-controls"><button type="button" aria-label={'Previous '+label} onClick={()=>slide(-1)}>←</button><button type="button" aria-label={'Next '+label} onClick={()=>slide(1)}>→</button></div><div ref={ref} className="collection-rail" tabIndex={0} onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerLeave={end} onPointerCancel={end} onDragStart={e=>e.preventDefault()} onClickCapture={e=>{if(block.current&&e.detail!==0){e.preventDefault();e.stopPropagation();block.current=false;}}}>{children}</div></section>;
+}
+export function Marquee(){const [paused,setPaused]=useState(false);return <section className="marquee" aria-label="LUMIÈRE editorial message"><span className="visually-hidden">Considered essentials. Quiet distinction.</span><div className={'marquee-track'+(paused?' paused':'')} aria-hidden="true">{Array.from({length:4},(_,i)=><span key={i}>Considered essentials · Quiet distinction · </span>)}</div><button className="marquee-toggle" onClick={()=>setPaused(v=>!v)}>{paused?'Play':'Pause'} movement</button></section>;}
+export function useParallax(){const ref=useRef<HTMLDivElement>(null);useEffect(()=>{const el=ref.current;if(!el)return;const mq=matchMedia('(prefers-reduced-motion: reduce)');let frame=0;const update=()=>{frame=0;if(mq.matches){el.style.removeProperty('--parallax');return;}const r=el.getBoundingClientRect();if(r.bottom>0&&r.top<innerHeight)el.style.setProperty('--parallax',Math.max(-30,Math.min(30,-r.top*.06))+'px');};const schedule=()=>{if(!frame)frame=requestAnimationFrame(update);};window.addEventListener('scroll',schedule,{passive:true});mq.addEventListener('change',schedule);schedule();return()=>{window.removeEventListener('scroll',schedule);mq.removeEventListener('change',schedule);cancelAnimationFrame(frame);};},[]);return ref;}
