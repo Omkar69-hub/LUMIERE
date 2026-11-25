@@ -9,3 +9,5 @@ Baseline run 45606858872 succeeded: build, database migration and one auth integ
 
 ## Dependency remediation
 Run 45607283249 passed both functional suites and failed npm audit. Findings: Prisma config dependencies deepmerge-ts and effect, Nodemailer, and Zod. Upgraded to the patched versions recommended by that audit (Prisma 7.10.1, Nodemailer 10.6.1, Zod 4.6.7), migrated Prisma configuration and PostgreSQL driver according to the Prisma 7 upgrade guide, disabled mail file/URL content access. Existing SQL migrations remain unchanged. Audit and regression verification required before claiming remediation.
+
+Run 45607856945: build, migrations and tests passed after the Prisma 7 upgrade; audit still identified effect <=3.22.0 via Prisma config (3 high-severity dependency-tree entries). Root npm override pins effect to 3.22.1, the patched version in https://github.com/Effect-TS/effect/security/advisories/GHSA-7589-6fvf-x4pw. Full audit and regression checks remain required. Remove override when upstream resolves to a safe version.
