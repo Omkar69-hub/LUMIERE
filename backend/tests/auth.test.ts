@@ -28,7 +28,9 @@ test('database-backed authentication, recovery and access controls',async()=>{
  const verify=new URL(delivered.find(x=>x.purpose==='VERIFY_EMAIL')!.url).hash.slice(7);
  await post('/api/auth/verify-email',{token:verify}).expect(200);
  await post('/api/auth/verify-email',{token:verify}).expect(400);
+ const oldCookie=reg.headers['set-cookie'][0].split(';')[0];
  await post('/api/auth/logout',{}).expect(204);
+ await request(app).get('/api/users/me').set('Cookie',oldCookie).expect(401);
  await agent.get('/api/users/me').expect(401);
  await post('/api/auth/login',{email,password:'wrong password'}).expect(401);
  await post('/api/auth/login',{email,password,remember:true}).expect(200);
@@ -40,5 +42,8 @@ test('database-backed authentication, recovery and access controls',async()=>{
  await agent.get('/api/users/me').expect(401);
  await post('/api/auth/reset-password',{token:reset,password:password,confirmPassword:password}).expect(400);
  await post('/api/auth/login',{email,password}).expect(401);
- await post('/api/auth/login',{email,password:nextPassword}).expect(200);
+ const newSession=await post('/api/auth/login',{email,password:nextPassword}).expect(200);
+ const cookie=newSession.headers['set-cookie'][0].split(';')[0];
+ await db.session.updateMany({where:{userId:user.id},data:{expiresAt:new Date(Date.now()-1000)}});
+ await request(app).get('/api/users/me').set('Cookie',cookie).expect(401);
 });

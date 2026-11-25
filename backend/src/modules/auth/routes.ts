@@ -33,7 +33,7 @@ export function authRoutes(origin:string,mail?:Mailer){
     const v=login.parse(req.body), user=await db.user.findUnique({where:{email:v.email}});
     const ok=await verifyPassword(user?.passwordHash??await dummy,v.password);
     if(!user||!ok)throw new HttpError(401,'Invalid email or password.');
-    await issue(req,res,user.id,v.remember);
+    await issue(req,res,user.id,v.remember,user.passwordHash);
     res.json({user:{id:user.id,name:user.name,email:user.email,mobile:user.mobile,role:user.role,emailVerifiedAt:user.emailVerifiedAt}});
   }));
   router.post('/logout',wrap(async(req,res)=>{await revoke(req,res);res.status(204).end();}));
@@ -57,6 +57,8 @@ export function authRoutes(origin:string,mail?:Mailer){
     await db.$transaction(async tx=>{
       const row=await tx.authToken.findUnique({where:{tokenHash}});
       if(!row||row.purpose!=='RESET_PASSWORD'||row.expiresAt<=new Date())throw new HttpError(400,'Invalid or expired link.');
+      // Lock the account before consuming a token to serialize password changes and session issuance.
+      await tx.$queryRaw `SELECT "id" FROM "User" WHERE "id" = ${row.userId} FOR UPDATE`;
       const consumed=await tx.authToken.deleteMany({where:{id:row.id,expiresAt:{gt:new Date()}}});
       if(consumed.count!==1)throw new HttpError(400,'Invalid or expired link.');
       await tx.user.update({where:{id:row.userId},data:{passwordHash}});

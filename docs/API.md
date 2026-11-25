@@ -17,4 +17,10 @@ Same-origin JSON requests; unsafe methods must include the configured Origin. Se
 | PATCH/DELETE | /api/addresses/:id | Address owner |
 | GET | /api/admin/access | Admin |
 
-No catalog, cart, checkout, payment or full admin APIs are implemented yet.
+## Catalogue
+- GET /api/products: published products, q/category/brand/size/color/minPrice/maxPrice/inStock/sort/page/limit filters. Prices in integer paise.
+- GET /api/products/:slug: published detail and variant availability.
+- GET /api/categories and /api/brands.
+- Admin only: POST /api/admin/catalog/categories, /brands, /products; GET /api/admin/catalog/products; PATCH /api/admin/catalog/products/:id; PATCH /api/admin/catalog/variants/:id/stock.
+- Products start unpublished. Publish requires at least one image and variant. Image URLs must be HTTPS; only approved imagery should be entered.
+- No cart, checkout, payment or complete admin dashboard yet.
