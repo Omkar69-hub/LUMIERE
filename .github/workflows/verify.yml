@@ -37,11 +37,19 @@ jobs:
       - run: npm test
       - name: Install Chromium for browser QA
         run: npx playwright install --with-deps chromium
-      - name: Browser authentication and navigation tests
+      - name: Browser customer, admin and navigation tests
         env:
           APP_ORIGIN: http://localhost:5173
           PORT: 3001
         run: npm run test:browser
+      - name: Upload browser evidence (synthetic records only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-evidence
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
   dependency-audit:
     runs-on: ubuntu-latest
     steps:

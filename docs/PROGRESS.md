@@ -45,3 +45,5 @@
 - Use React Router data-router host for supported public viewTransition navigation while retaining existing descendant route definitions. Added desktop/mobile public navigation, filters, draft policy and unauthenticated support browser checks. CI pending.
 
 - Run 45611171388 passed all build, migration, API, browser and audit steps. Final QA changes include loopback server bind, request-size handling, consistent account locking, robust API response handling, page metadata and development indexing restrictions, responsive/focus improvements. New CI pending.
+
+- Browser QA now targets built frontend preview, requires isolated database environment, adds real admin publish/customer shopping/support journey and public route metadata/overflow/focus assertions. CI uploads synthetic screenshot evidence; external payment remains disabled. New CI pending.

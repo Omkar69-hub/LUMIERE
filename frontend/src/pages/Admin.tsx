@@ -15,7 +15,7 @@ export function Admin(){
  const session=useQuery({queryKey:['session'],queryFn:()=>api<{user:User}>('/users/me'),retry:false,staleTime:0,refetchOnMount:'always'}),uid=session.data?.user.id;
  const gate=useQuery({queryKey:['admin',uid,'access'],queryFn:()=>api<{authorized:boolean}>('/admin/access'),enabled:!!uid&&session.data?.user.role==='ADMIN',retry:false,refetchOnMount:'always',staleTime:0});
  const [tab,setTab]=useState<Tab>('Overview'),[busy,setBusy]=useState(false),[error,setError]=useState(''),client=useQueryClient(),navigate=useNavigate();
- async function logout(){if(busy)return;setBusy(true);try{await api('/auth/logout','POST');client.clear();navigate('/login',{replace:true});}catch(e){setError(e instanceof Error?e.message:'Sign out failed.');}finally{setBusy(false);}}
+ async function logout(){if(busy)return;setBusy(true);try{await api('/auth/logout','POST');await client.cancelQueries();client.clear();navigate('/login',{replace:true});}catch(e){setError(e instanceof Error?e.message:'Sign out failed.');}finally{setBusy(false);}}
  if(session.isPending||session.isFetching)return <main className="page"><p role="status">Checking administrator session…</p></main>;
  if(session.error instanceof ApiError&&session.error.status===401)return <Navigate to="/login" replace/>;
  if(!uid||session.isError)return <main className="page"><p role="alert">Unable to verify session.</p><Link to="/account">Account</Link></main>;
