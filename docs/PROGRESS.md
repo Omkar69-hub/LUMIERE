@@ -9,3 +9,5 @@
 - Prisma 7 upgrade passed build, migrations and regression test steps in run 45607856945; audit reduced from six to three high-severity entries, all related to Effect. Added patched Effect 3.22.1 override; latest combined CI still pending.
 
 - Run 45607975941 shopping functional test job passed; run 45608056976 audit job reported zero vulnerabilities. Checkout, reservation, order history and Razorpay test-mode backend source committed; new tests pending. Live payments prohibited. No real provider credentials available.
+
+- Checkout and order-history UI, saved address selection, test-only Razorpay browser checkout, pending/cancelled/paid states and links added. External sandbox delivery not verified. No real payment or deployment.
