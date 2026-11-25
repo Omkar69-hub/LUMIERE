@@ -9,10 +9,12 @@
     "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
     "build": "npm run build -w backend && npm run build -w frontend",
     "db:migrate": "npm run db:migrate -w backend",
-    "test": "npm test -w backend"
+    "test": "npm test -w backend",
+    "test:browser": "playwright test"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "@playwright/test": "^1.56.1"
   },
   "overrides": {
     "effect": "3.22.1"

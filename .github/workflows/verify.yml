@@ -35,6 +35,13 @@ jobs:
       - run: npm run build
       - run: npm run db:migrate
       - run: npm test
+      - name: Install Chromium for browser QA
+        run: npx playwright install --with-deps chromium
+      - name: Browser authentication and navigation tests
+        env:
+          APP_ORIGIN: http://localhost:5173
+          PORT: 3001
+        run: npm run test:browser
   dependency-audit:
     runs-on: ubuntu-latest
     steps:
