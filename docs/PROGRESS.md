@@ -29,3 +29,5 @@
 - Auth redesign run 45609663288: build, migrations, API integration tests and dependency audit passed; browser search/reduced-motion tests passed on both desktop/mobile, but signup checkbox click failed on both. Replaced nested terms label/link with explicit label and separate link, eliminated input movement, retained text feedback; retest required. Added commerce integration test for coupon expiration/deactivation, price rollback, immutable discounts, return ownership, approval/receipt and no implicit refund or restock.
 
 - Further checkbox investigation: confirmation error previously appeared on blur, shifting later controls during a pointer interaction. Validation now updates during typing instead of blur, alongside explicit stable checkbox hit areas. Earlier pattern-only run 45609743555 also failed both signup journeys. Retest required.
+
+- Catalog mutation audit events added atomically to category/brand create/update/delete, product create/update/publish/archive, imagery, variant creation and stock updates. Product publication now locks the product row to coordinate with image edits. CI pending.

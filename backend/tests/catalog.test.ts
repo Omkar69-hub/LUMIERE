@@ -12,7 +12,7 @@ const app=createApp(origin), tag=randomUUID(), email=tag+'@example.invalid', pas
 const admin=request.agent(app);
 const post=(path:string,body:unknown)=>admin.post(path).set('Origin',origin).send(body);
 const patch=(path:string,body:unknown)=>admin.patch(path).set('Origin',origin).send(body);
-after(async()=>{await db.product.deleteMany({where:{slug:tag}});await db.category.deleteMany({where:{slug:tag}});await db.brand.deleteMany({where:{slug:tag}});await db.user.deleteMany({where:{email}});await db.$disconnect();});
+after(async()=>{await db.product.deleteMany({where:{slug:tag}});await db.category.deleteMany({where:{slug:tag}});await db.brand.deleteMany({where:{slug:tag}});await db.adminEvent.deleteMany({where:{actor:{email}}});await db.user.deleteMany({where:{email}});await db.$disconnect();});
 test('catalog publication, filters, inventory and admin authorization',async()=>{
  await db.user.create({data:{email,name:'Test admin',mobile:'9999999999',passwordHash:await hashPassword(password),termsAcceptedAt:new Date(),role:'ADMIN'}});
  await request(app).post('/api/admin/catalog/categories').set('Origin',origin).send({name:'Test',slug:tag}).expect(401);
@@ -32,5 +32,7 @@ test('catalog publication, filters, inventory and admin authorization',async()=>
  await patch('/api/admin/catalog/variants/'+m.id+'/stock',{stock:0}).expect(200);
  const empty=(await request(app).get('/api/products').query({category:tag,inStock:'true'}).expect(200)).body;assert.equal(empty.total,0);
  await patch('/api/admin/catalog/products/'+product.id,{published:false}).expect(200);
+ assert.ok(await db.adminEvent.count({where:{targetId:product.id,action:'PRODUCT_PUBLISH'}}));
+ assert.ok(await db.adminEvent.count({where:{targetId:m.id,action:'STOCK_UPDATE'}}));
  await request(app).get('/api/products/'+tag).expect(404);
 });
