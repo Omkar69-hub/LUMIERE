@@ -51,3 +51,15 @@ test('reduced motion and navigable search overlay',async({page})=>{
  await page.getByLabel('Email address').focus();await expect(page.getByLabel('Email address')).toBeFocused();
  await page.keyboard.press('Tab');await expect(page.getByLabel('Password',{exact:true})).toBeFocused();
 });
+
+test('public catalogue navigation, filters and policy access',async({page,isMobile})=>{
+ await page.goto('/');
+ await page.getByRole('link',{name:'Explore the collection'}).click();
+ await expect(page).toHaveURL(/\/shop$/);
+ if(isMobile)await page.getByRole('button',{name:'Filter & sort'}).click();
+ await page.getByRole('textbox',{name:'Search',exact:true}).fill('linen');
+ await page.getByRole('button',{name:'Apply filters'}).click();
+ await expect(page).toHaveURL(/\/shop\?q=linen/);
+ await page.goto('/shipping');await expect(page.getByRole('heading',{name:'Shipping policy — draft'})).toBeVisible();
+ await page.goto('/support');await expect(page.getByRole('link',{name:'Sign in to contact support'})).toBeVisible();
+});

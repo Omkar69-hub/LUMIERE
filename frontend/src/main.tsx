@@ -1,6 +1,6 @@
 import { lazy,Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter,Routes,Route,Link,useLocation } from 'react-router-dom';
+import { createBrowserRouter,RouterProvider,Routes,Route,Link,useLocation } from 'react-router-dom';
 import { QueryClient,QueryClientProvider } from '@tanstack/react-query';
 import { AuthPage } from './features/auth/AuthPage';
 import { RecoveryPage } from './features/auth/RecoveryPage';
@@ -19,4 +19,5 @@ import {Information} from './pages/Information';
 import {Home} from './pages/Home';
 const query=new QueryClient({defaultOptions:{queries:{staleTime:0,retry:false}}});
 function AppRoutes(){const location=useLocation();return <div className="route-enter" key={location.pathname}><Suspense fallback={<main className="page"><p role="status">Loading LUMIÈRE…</p></main>}><Routes location={location}><Route path="/" element={<Home/>}/><Route path="/checkout" element={<Checkout/>}/><Route path="/orders" element={<Orders/>}/><Route path="/orders/:id" element={<OrderDetail/>}/><Route path="/cart" element={<Shopping key="cart" mode="cart"/>}/><Route path="/wishlist" element={<Shopping key="wishlist" mode="wishlist"/>}/><Route path="/shop" element={<Shop/>}/><Route path="/products/:slug" element={<ProductDetail/>}/><Route path="/login" element={<AuthPage key="login" mode="login"/>}/><Route path="/signup" element={<AuthPage key="register" mode="register"/>}/><Route path="/forgot-password" element={<RecoveryPage key="forgot" mode="forgot-password"/>}/><Route path="/reset-password" element={<RecoveryPage key="reset" mode="reset-password"/>}/><Route path="/verify-email" element={<RecoveryPage key="verify" mode="verify-email"/>}/><Route path="/admin" element={<Admin/>}/><Route path="/account" element={<Account/>}/><Route path="/support" element={<Support/>}/><Route path="/contact" element={<Support/>}/>{["about","faq","shipping","returns","privacy","terms"].map(name=><Route key={name} path={"/"+name} element={<Information name={name}/>}/>)}<Route path="*" element={<main className="page"><h1>Page not found</h1><Link to="/">Home</Link></main>}/></Routes></Suspense></div>}
-createRoot(document.getElementById('root')!).render(<QueryClientProvider client={query}><BrowserRouter><AppRoutes/></BrowserRouter></QueryClientProvider>);
+const router=createBrowserRouter([{path:'*',element:<AppRoutes/>}]);
+createRoot(document.getElementById('root')!).render(<QueryClientProvider client={query}><RouterProvider router={router}/></QueryClientProvider>);

@@ -41,3 +41,5 @@
 - Run 45610118247 passed all API and desktop/mobile browser tests, confirming the signup layout-shift correction. Added database-backed customer care tickets and admin replies, owner isolation test, about/FAQ/contact/shipping/returns/privacy/terms routes. Commercial legal policies and service commitments remain unapproved. CI pending.
 
 - Progressive View Transition page exit/entry for public catalogue links; reduced-motion opt-out, mouse drag momentum, touch/keyboard gallery controls, mobile filter panel, selected-variant and wishlist microinteractions, checkout step indicator and policy/support styles. No animation delays authentication or checkout. Full visual/performance validation and licensed product imagery remain pending.
+
+- Use React Router data-router host for supported public viewTransition navigation while retaining existing descendant route definitions. Added desktop/mobile public navigation, filters, draft policy and unauthenticated support browser checks. CI pending.
