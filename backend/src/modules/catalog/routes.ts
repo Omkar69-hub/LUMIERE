@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../generated/prisma/client.js';
 import { db } from '../../config/database.js';
 import { wrap,HttpError } from '../../middleware/http.js';
 import { requireUser,requireAdmin } from '../auth/session.js';

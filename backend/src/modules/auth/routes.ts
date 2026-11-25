@@ -7,7 +7,7 @@ import { HttpError,wrap } from '../../middleware/http.js';
 import { digest,hashPassword,randomToken,verifyPassword } from '../../utils/security.js';
 import { email,login,registration,reset } from './validation.js';
 import { issue,publicUser,revoke,requireUser } from './session.js';
-import type { TokenPurpose } from '@prisma/client';
+import type { TokenPurpose } from '../../generated/prisma/client.js';
 const generic={message:'If the account is eligible, a link will be sent.'};
 export function authRoutes(origin:string,mail?:Mailer){
   const router=Router();
