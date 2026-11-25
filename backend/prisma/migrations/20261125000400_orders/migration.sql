@@ -1,0 +1,8 @@
+CREATE TYPE "OrderStatus" AS ENUM ('PENDING_PAYMENT','PAID','CANCELLED');
+CREATE TYPE "GatewayState" AS ENUM ('NEW','CREATING','READY','REVIEW');
+CREATE TABLE "Order" ("id" TEXT PRIMARY KEY,"userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE,"requestKey" TEXT NOT NULL,"addressSnapshot" JSONB NOT NULL,"subtotalPaise" INTEGER NOT NULL CHECK ("subtotalPaise">=0),"shippingPaise" INTEGER NOT NULL CHECK ("shippingPaise">=0),"totalPaise" INTEGER NOT NULL CHECK ("totalPaise"="subtotalPaise"+"shippingPaise"),"status" "OrderStatus" NOT NULL DEFAULT 'PENDING_PAYMENT',"gatewayState" "GatewayState" NOT NULL DEFAULT 'NEW',"providerOrderId" TEXT UNIQUE,"providerPaymentId" TEXT UNIQUE,"paidAt" TIMESTAMP(3),"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"updatedAt" TIMESTAMP(3) NOT NULL,UNIQUE("userId","requestKey"));
+CREATE INDEX "Order_userId_createdAt_idx" ON "Order"("userId","createdAt");
+CREATE TABLE "OrderItem" ("id" TEXT PRIMARY KEY,"orderId" TEXT NOT NULL REFERENCES "Order"("id") ON DELETE RESTRICT ON UPDATE CASCADE,"variantId" TEXT NOT NULL REFERENCES "ProductVariant"("id") ON DELETE RESTRICT ON UPDATE CASCADE,"name" TEXT NOT NULL,"sku" TEXT NOT NULL,"size" TEXT NOT NULL,"color" TEXT NOT NULL,"quantity" INTEGER NOT NULL CHECK ("quantity" BETWEEN 1 AND 20),"unitPricePaise" INTEGER NOT NULL CHECK ("unitPricePaise">0));
+CREATE INDEX "OrderItem_orderId_idx" ON "OrderItem"("orderId");
+CREATE INDEX "OrderItem_variantId_idx" ON "OrderItem"("variantId");
+CREATE TABLE "PaymentEvent" ("id" TEXT PRIMARY KEY,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
