@@ -23,6 +23,9 @@ test('checkout reservation, idempotency, cancellation and captured payment',asyn
  const address=(await post('/api/addresses',{recipient:'Test',line1:'Test street',city:'Pune',state:'Maharashtra',postalCode:'411001'}).expect(201)).body;
  await a.put('/api/cart/items').set('Origin',origin).send({variantId:v.id,quantity:2}).expect(200);
  const body={addressId:address.id,requestKey:randomUUID(),expectedTotalPaise:200000};
+ const code='TEST'+tag.replaceAll('-','').slice(0,20).toUpperCase();
+ await db.coupon.create({data:{code,percent:10,minimumPaise:100000,active:true}});
+ try{const quote=await post('/api/orders/quote',{coupon:code}).expect(200);assert.equal(quote.body.discountPaise,20000);assert.equal(quote.body.totalPaise,180000);}finally{await db.coupon.delete({where:{code}});}
  await post('/api/orders',body).expect(403);
  await db.user.update({where:{id:u.id},data:{emailVerifiedAt:new Date()}});
  await post('/api/orders',{...body,expectedTotalPaise:1}).expect(409);

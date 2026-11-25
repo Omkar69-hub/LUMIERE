@@ -166,6 +166,8 @@ model Order {
   addressSnapshot Json
   subtotalPaise Int
   shippingPaise Int
+  discountPaise Int @default(0)
+  couponCode String?
   totalPaise Int
   status OrderStatus @default(PENDING_PAYMENT)
   gatewayState GatewayState @default(NEW)
@@ -179,6 +181,7 @@ model Order {
   updatedAt DateTime @updatedAt
   user User @relation(fields:[userId],references:[id],onDelete:Restrict)
   items OrderItem[]
+  returnRequest ReturnRequest?
   @@unique([userId,requestKey])
   @@index([userId,createdAt])
 }
@@ -230,4 +233,30 @@ model StoreCampaign {
 model NewsletterSubscriber {
   email String @id
   consentAt DateTime @default(now())
+}
+
+model Coupon {
+  code String @id
+  percent Int
+  minimumPaise Int @default(0)
+  active Boolean @default(false)
+  expiresAt DateTime?
+  updatedAt DateTime @updatedAt
+}
+enum ReturnStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  RECEIVED
+}
+model ReturnRequest {
+  id String @id @default(uuid())
+  orderId String @unique
+  reason String
+  status ReturnStatus @default(REQUESTED)
+  reviewNote String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  order Order @relation(fields:[orderId],references:[id],onDelete:Restrict)
+  @@index([status,createdAt])
 }

@@ -36,3 +36,6 @@ All /api/admin endpoints require an authenticated server-side ADMIN role. GET /o
 
 ## Marketing
 GET /api/marketing/campaign serves the saved homepage campaign or original default editorial copy. POST /api/marketing/newsletter records explicit consent, idempotently, without sending mail. Protected /api/admin/marketing endpoints: GET/PUT /campaign, GET /products?page=1, PATCH /products/:id {featured}, GET /newsletter (count only). Public catalogue supports featured=true. Mailing delivery and consent withdrawal workflow require policy and provider setup; no subscriber export or sending endpoint.
+
+## Commerce administration
+Admin-only GET/PUT /api/admin/commerce/coupons[/:code], GET /returns, PATCH /returns/:id. Coupons are single-code percentage discounts (1–90%) with minimum subtotal, activation and optional expiry; no usage caps or stacking. POST /api/orders/quote {coupon?} returns the authoritative discount quote; POST /api/orders accepts optional coupon and checks the total again under transaction. Order discount/code are immutable snapshots. Customers may GET/POST /api/returns/:orderId for owned delivered paid orders; admins review and mark receipt. No refund or restocking is implied by a return status. Policy eligibility, return labels, provider refunds and reconciliation remain separate release requirements.

@@ -3,11 +3,12 @@ import { z } from 'zod';
 import { db } from '../../config/database.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { wrap,HttpError } from '../../middleware/http.js';
+import {couponCode,calculateDiscount} from '../commerce/coupons.js';
 import { requireUser } from '../auth/session.js';
 import type { Gateway,GatewayPayment } from '../payments/gateway.js';
 const uuid=z.string().uuid();
 const orderInclude={items:true} as const;
-const publicOrder=(o:Prisma.OrderGetPayload<{include:typeof orderInclude}>)=>({id:o.id,status:o.status,gatewayState:o.gatewayState,fulfillment:o.fulfillment,trackingNumber:o.trackingNumber,carrier:o.carrier,subtotalPaise:o.subtotalPaise,shippingPaise:o.shippingPaise,totalPaise:o.totalPaise,address:o.addressSnapshot,items:o.items,createdAt:o.createdAt,paidAt:o.paidAt});
+const publicOrder=(o:Prisma.OrderGetPayload<{include:typeof orderInclude}>)=>({id:o.id,status:o.status,gatewayState:o.gatewayState,fulfillment:o.fulfillment,trackingNumber:o.trackingNumber,carrier:o.carrier,subtotalPaise:o.subtotalPaise,shippingPaise:o.shippingPaise,discountPaise:o.discountPaise,couponCode:o.couponCode,totalPaise:o.totalPaise,address:o.addressSnapshot,items:o.items,createdAt:o.createdAt,paidAt:o.paidAt});
 const verified=(res:{locals:Record<string,any>})=>{if(!res.locals.user.emailVerifiedAt)throw new HttpError(403,'Verify your email before checkout.');};
 const shipping=0; // Explicit development/test policy only; change before release.
 export async function confirmPayment(payment:GatewayPayment,eventId?:string){
@@ -29,10 +30,19 @@ export function orderRoutes(gateway?:Gateway){
  const router=Router();router.use(requireUser);
  router.get('/configuration',(_req,res)=>res.json({paymentEnabled:!!gateway,testMode:true,shippingPaise:shipping}));
  router.get('/',wrap(async(req,res)=>{const {page}=z.object({page:z.coerce.number().int().min(1).max(1000).default(1)}).strict().parse(req.query);const rows=await db.order.findMany({where:{userId:res.locals.user.id},include:orderInclude,orderBy:[{createdAt:'desc'},{id:'asc'}],skip:(page-1)*20,take:21});res.json({items:rows.slice(0,20).map(publicOrder),hasMore:rows.length>20});}));
+ router.post('/quote',wrap(async(req,res)=>{
+  const {coupon}=z.object({coupon:couponCode.optional()}).strict().parse(req.body);
+  const quote=await db.$transaction(async tx=>{
+   const rows=await tx.cartItem.findMany({where:{userId:res.locals.user.id},include:{variant:{include:{product:true}}},take:101});
+   if(!rows.length||rows.length>100||rows.some(r=>!r.variant.product.published||r.variant.stock<r.quantity))throw new HttpError(409,'Review your bag inventory.');
+   const subtotalPaise=rows.reduce((n,r)=>n+r.quantity*r.variant.product.pricePaise,0);
+   const discount=await calculateDiscount(tx,subtotalPaise,coupon);return {subtotalPaise,shippingPaise:shipping,...discount,totalPaise:subtotalPaise+shipping-discount.discountPaise};
+  });res.json(quote);
+ }));
  router.get('/:id',wrap(async(req,res)=>{const o=await db.order.findFirst({where:{id:uuid.parse(req.params.id),userId:res.locals.user.id},include:orderInclude});if(!o)throw new HttpError(404,'Order not found.');res.json(publicOrder(o));}));
  router.post('/',wrap(async(req,res)=>{
   verified(res);if(!gateway)throw new HttpError(503,'Test payments are not configured.');
-  const {addressId,requestKey,expectedTotalPaise}=z.object({addressId:uuid,requestKey:uuid,expectedTotalPaise:z.number().int().min(1).max(2000000000)}).strict().parse(req.body),userId:string=res.locals.user.id;
+  const {addressId,requestKey,expectedTotalPaise,coupon}=z.object({addressId:uuid,requestKey:uuid,expectedTotalPaise:z.number().int().min(1).max(2000000000),coupon:couponCode.optional()}).strict().parse(req.body),userId:string=res.locals.user.id;
   const o=await db.$transaction(async tx=>{
    const account=await tx.$queryRaw<{suspendedAt:Date|null}[]> `SELECT "suspendedAt" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
    if(!account[0]||account[0].suspendedAt)throw new HttpError(401,'Please sign in.');
@@ -51,9 +61,10 @@ export function orderRoutes(gateway?:Gateway){
     const reserved=await tx.productVariant.updateMany({where:{id:v.id,stock:{gte:row.quantity}},data:{stock:{decrement:row.quantity}}});if(!reserved.count)throw new HttpError(409,'Stock changed. Refresh your bag.');
     subtotal+=p.pricePaise*row.quantity;items.push({variantId:v.id,name:p.name,sku:v.sku,size:v.size,color:v.color,quantity:row.quantity,unitPricePaise:p.pricePaise});
    }
-   const total=subtotal+shipping;if(total!==expectedTotalPaise||total<100||total>2000000000)throw new HttpError(409,'Price changed or total outside supported range.');
+   const discount=await calculateDiscount(tx,subtotal,coupon,true);
+   const total=subtotal+shipping-discount.discountPaise;if(total!==expectedTotalPaise||total<100||total>2000000000)throw new HttpError(409,'Price changed or total outside supported range.');
    const {recipient,line1,city,state,postalCode,country}=address;
-   const result=await tx.order.create({data:{userId,requestKey,addressSnapshot:{recipient,line1,city,state,postalCode,country},subtotalPaise:subtotal,shippingPaise:shipping,totalPaise:total,items:{create:items}},include:orderInclude});
+   const result=await tx.order.create({data:{userId,requestKey,addressSnapshot:{recipient,line1,city,state,postalCode,country},subtotalPaise:subtotal,shippingPaise:shipping,...discount,totalPaise:total,items:{create:items}},include:orderInclude});
    for(const row of rows){const removed=await tx.cartItem.deleteMany({where:{id:row.id,userId,quantity:row.quantity,updatedAt:row.updatedAt}});if(!removed.count)throw new HttpError(409,'Bag changed. Try again.');}
    return result;
   },{timeout:15000});
