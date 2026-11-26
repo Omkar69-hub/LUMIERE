@@ -41,8 +41,8 @@ export function adminRoutes(gateway?:Gateway){
   });res.json({message:'Customer status updated.'});
  }));
  router.get('/orders',wrap(async(req,res)=>{
-  const {page,q,status}=pageSchema.extend({status:z.enum(['PENDING_PAYMENT','PAID','CANCELLED']).optional()}).parse(req.query);
-  const where:Prisma.OrderWhereInput={...(status?{status}:{}),...(q?{OR:[{id:{contains:q}},{user:{email:{contains:q,mode:'insensitive'}}}]}:{})};
+  const {page,q,status,fulfillment,method}=pageSchema.extend({status:z.enum(['PENDING_PAYMENT','PAID','CANCELLED']).optional(),fulfillment:z.enum(['UNFULFILLED','PACKING','SHIPPED','OUT_FOR_DELIVERY','DELIVERED']).optional(),method:z.enum(['COD','ONLINE']).optional()}).parse(req.query);
+  const where:Prisma.OrderWhereInput={...(status?{status}:{}),...(fulfillment?{fulfillment}:{}),...(method?{paymentMethod:method}:{}),...(q?{OR:[{id:{contains:q,mode:'insensitive'}},{user:{email:{contains:q,mode:'insensitive'}}},{user:{name:{contains:q,mode:'insensitive'}}}]}:{})};
   const rows=await db.order.findMany({where,include:orderInclude,orderBy:[{createdAt:'desc'},{id:'asc'}],skip:(page-1)*25,take:26});res.json({items:rows.slice(0,25),hasMore:rows.length>25});
  }));
  router.get('/orders/:id',wrap(async(req,res)=>{const order=await db.order.findUnique({where:{id:uuid.parse(req.params.id)},include:{...orderInclude,notifications:{orderBy:{createdAt:'asc'}}}});if(!order)throw new HttpError(404,'Order not found.');res.json(order);}));

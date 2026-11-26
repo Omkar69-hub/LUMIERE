@@ -15,7 +15,7 @@ adminCommerce.put('/coupons/:code',wrap(async(req,res)=>{
 }));
 adminCommerce.get('/returns',wrap(async(req,res)=>{
  const {page,status}=z.object({page:z.coerce.number().int().min(1).max(10000).default(1),status:z.enum(['REQUESTED','APPROVED','REJECTED','RECEIVED']).optional()}).strict().parse(req.query);
- const rows=await db.returnRequest.findMany({where:{status},include:{order:{select:{id:true,totalPaise:true,user:{select:{name:true,email:true}}}}},orderBy:[{createdAt:'desc'},{id:'asc'}],skip:(page-1)*25,take:26});res.json({items:rows.slice(0,25),hasMore:rows.length>25});
+ const rows=await db.returnRequest.findMany({where:{status},include:{order:{select:{id:true,totalPaise:true,paymentMethod:true,user:{select:{name:true,email:true}}}}},orderBy:[{createdAt:'desc'},{id:'asc'}],skip:(page-1)*25,take:26});res.json({items:rows.slice(0,25),hasMore:rows.length>25});
 }));
 adminCommerce.patch('/returns/:id',wrap(async(req,res)=>{
  const id=uuid.parse(req.params.id),v=z.object({status:z.enum(['APPROVED','REJECTED','RECEIVED']),reviewNote:z.string().trim().min(1).max(500)}).strict().parse(req.body);

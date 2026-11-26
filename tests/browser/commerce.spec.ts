@@ -17,7 +17,7 @@ test('administrator publishes a product; customer saves, shops and contacts supp
   fixture('create',tag);
   await page.goto('/login');await page.getByLabel('Email address').fill(email);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page).toHaveURL(/\/account$/);
   await page.goto('/admin');await expect(page.getByRole('heading',{name:'Store overview'})).toBeVisible();
-  await page.getByRole('button',{name:'Products',exact:true}).click();
+  await page.getByRole('button',{name:'Products',exact:true}).click();await page.getByRole('button',{name:'Add product',exact:true}).click();
   await page.getByLabel('Product name').fill(name);await page.getByLabel('Slug',{exact:true}).fill(tag);await page.getByLabel('Price (₹)').fill('1500');
   await page.getByLabel('Category',{exact:true}).selectOption({label:'QA category '+tag});await page.getByLabel('Brand',{exact:true}).selectOption({label:'QA brand '+tag});
   await page.getByLabel('Description',{exact:true}).fill('Synthetic browser QA fixture.');
