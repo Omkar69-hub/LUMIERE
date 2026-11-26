@@ -4,3 +4,33 @@
 
 /* Compact management refinements */
 .admin-sidebar{padding:1.1rem .85rem;gap:.35rem;scrollbar-width:thin;scrollbar-color:#665d50 #171717}.admin-studio-label{margin-bottom:.85rem}.admin-nav{gap:.15rem}.admin-shell .admin-nav button{padding:.55rem .65rem;min-height:38px}.admin-sidebar-footer{padding-top:.65rem;gap:.15rem}.admin-sidebar-footer a{padding:.35rem .5rem}.admin-shell .admin-sidebar-footer button{padding:.5rem .65rem}.admin-kpi{gap:.25rem;padding:1rem}.admin-kpi strong{line-height:1.25}.admin-shell .admin-kpi .admin-inline-link{border:0;padding:.2rem 0;min-height:28px}.admin-status.danger{background:#f5e6e2;color:#8b352b;border-color:#e1c0b9}.admin-filter-grid,.admin-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:.8rem;margin:.7rem 0}.admin-search{margin:.8rem 0}.admin-search input:not([type=checkbox]){padding:.65rem}.admin-search .primary{padding:.65rem 1rem}.admin-table small{display:block;color:#625e58;margin-top:.2rem}.admin-table th,.admin-table td{padding:.6rem .65rem;vertical-align:middle}.admin-table tbody tr:hover{background:#fcfaf6}.admin-table .admin-line{border:0}.admin-table .admin-actions{flex-wrap:nowrap;font-size:.78rem}.admin-table .admin-actions a{white-space:nowrap}.admin-empty{background:#f5f1ea;padding:1rem;color:#625e58;margin:1rem 0}.admin-subcard{background:#faf7f2;border:1px solid #e4dccf;padding:1rem;margin:.75rem 0;min-width:0;overflow-wrap:anywhere}.admin-subcard h3{font:400 1.15rem Georgia,serif;margin:0 0 .65rem}.admin-subcard p{margin:.35rem 0}.admin-detail-amount{font:400 1.6rem Georgia,serif}.admin-detail-grid .admin-subcard{margin:0}.admin-order-detail .order-journey{list-style:none;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:0;margin:1.4rem 0}.admin-order-detail .order-journey li{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:.45rem;font-size:.75rem;color:#625e58}.admin-order-detail .order-journey li:not(:first-child)::before{content:"";position:absolute;top:10px;right:50%;width:100%;height:2px;background:#ded6c9}.admin-order-detail .order-journey li.is-complete::before{background:#9a8265}.admin-order-detail .journey-dot{position:relative;z-index:1;width:22px;height:22px;border-radius:50%;border:1px solid #9a8265;background:white;display:grid;place-items:center}.admin-order-detail .is-complete .journey-dot{background:#9a8265}.admin-order-detail .journey-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.admin-person{display:flex;gap:.8rem;align-items:center;min-width:0}.admin-avatar{background:#eae4da;color:#786247;display:grid;place-items:center;flex:none;width:38px;height:38px;border-radius:50%;font-family:Georgia,serif}.admin-image-strip{display:flex;gap:.5rem;flex-wrap:wrap}.admin-image-strip .order-item-photo{width:72px;aspect-ratio:3/4;background:#eae4da;display:grid;place-items:center;overflow:hidden}.admin-image-strip img{width:100%;height:100%;object-fit:cover}.admin-image-strip span{font-size:.65rem;text-align:center}.admin-message{white-space:pre-wrap;overflow-wrap:anywhere}.admin-section-toolbar{margin:.5rem 0 1rem}@media(max-width:760px){.admin-sidebar{padding:.8rem}.admin-nav.is-open{gap:.25rem}.admin-kpi{padding:.75rem}.admin-table{min-width:520px}.admin-order-detail .order-journey li{font-size:.63rem}.admin-detail-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* Mobile management: readable record cards instead of squeezed desktop columns. */
+.admin-products-table td:first-child{min-width:200px}
+.admin-products-table .admin-product-summary>div:last-child{min-width:0;overflow-wrap:break-word;word-break:normal}
+.admin-products-table td:nth-child(3),.admin-products-table td:nth-child(4){white-space:nowrap}
+@media(max-width:760px){
+ .admin-shell,.admin-workspace,.admin-body,.admin-card,.admin-table-scroll{min-width:0;max-width:100%}
+ .admin-card-table{display:block;width:100%;min-width:0;position:relative}
+ .admin-card-table thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+ .admin-card-table tbody{display:grid;gap:.8rem;min-width:0}
+ .admin-card-table tbody tr,.admin-card-table tbody tr.admin-line{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem .8rem;min-width:0;margin:0;padding:.85rem;border:1px solid #ded6c9;border-radius:5px;background:#fff}
+ .admin-card-table tbody td{display:block;min-width:0;padding:0;border:0;overflow-wrap:break-word;word-break:normal;white-space:normal}
+ .admin-card-table tbody td::before{content:attr(data-label);display:block;font-size:.7rem;color:#625e58;margin-bottom:.25rem;font-weight:400}
+ .admin-card-table tbody td:first-child{grid-column:1/-1;padding-bottom:.65rem;border-bottom:1px solid #eee8df}
+ .admin-card-table tbody td:last-child{grid-column:1/-1;padding-top:.65rem;border-top:1px solid #eee8df}
+ .admin-card-table tbody td:last-child::before,.admin-products-table tbody td:first-child::before{display:none}
+ .admin-card-table tbody td:last-child button{min-height:40px}
+ .admin-products-table tbody td:first-child{min-width:0}
+ .admin-products-table .admin-product-summary{gap:.75rem}
+ .admin-products-table .admin-product-summary strong{display:block;line-height:1.4;overflow-wrap:break-word;word-break:normal}
+ .admin-products-table .admin-product-summary .order-item-photo{width:56px}
+ .admin-products-table .admin-actions{flex-wrap:wrap}
+ .admin-products-table td:nth-child(3),.admin-products-table td:nth-child(4){white-space:normal}
+ .admin-notifications-table{min-width:0;width:100%;table-layout:auto}
+ .admin-notifications-table th,.admin-notifications-table td{padding:.5rem .25rem;font-size:.75rem;overflow-wrap:break-word}
+ .admin-notifications-table .admin-status{white-space:normal;font-size:.68rem}
+ .admin-search label{min-width:0;flex:1 1 170px}
+ .admin-shell .pagination{gap:.4rem;flex-wrap:wrap}
+ .admin-shell .pagination button{padding:.5rem .65rem;font-size:.8rem}
+}
