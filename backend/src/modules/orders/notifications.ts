@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import {renderOrderEmail} from './email-template.js';
 import {db} from '../../config/database.js';
 import type {Prisma} from '../../generated/prisma/client.js';
 type Event='CONFIRMED'|'PACKING'|'SHIPPED'|'OUT_FOR_DELIVERY'|'DELIVERED'|'CANCELLED';
@@ -7,7 +8,6 @@ export async function queueOrderNotice(tx:Prisma.TransactionClient,orderId:strin
  const o=await tx.order.findUniqueOrThrow({where:{id:orderId},select:{whatsappNumber:true}});
  await tx.orderNotification.createMany({data:[{orderId,event,channel:'EMAIL'},...(o.whatsappNumber?[{orderId,event,channel:'WHATSAPP' as const}]:[])],skipDuplicates:true});
 }
-const titles:Record<Event,string>={CONFIRMED:'Order confirmed',PACKING:'Order is being packed',SHIPPED:'Order shipped',OUT_FOR_DELIVERY:'Out for delivery',DELIVERED:'Order delivered',CANCELLED:'Order cancelled'};
 const currency=(n:number)=>'INR '+(n/100).toFixed(2);
 export function startOrderNotificationWorker(origin:string){
  // Explicit local test only. Never send to arbitrary customers or charge a live provider.
@@ -27,13 +27,13 @@ export function startOrderNotificationWorker(origin:string){
    for(const row of rows){
     const claim=await db.orderNotification.updateMany({where:{id:row.id,status:'PENDING'},data:{status:'SENDING'}});if(!claim.count)continue;
     try{
-     const o=await db.order.findUniqueOrThrow({where:{id:row.orderId},include:{user:true,items:true}});
-     const ref=o.id.slice(0,8),title=titles[row.event],tracking=o.trackingNumber?'Courier: '+o.carrier+'; tracking number: '+o.trackingNumber:'Tracking details not yet available';
-     const link=origin+'/orders/'+o.id;
+     const o=await db.order.findUniqueOrThrow({where:{id:row.orderId},include:{user:true,items:{include:{variant:{include:{product:{include:{images:{orderBy:{position:'asc'},take:1}}}}}}}}});
+     const ref=o.id.slice(0,8),tracking=o.trackingNumber?'Courier: '+o.carrier+'; tracking number: '+o.trackingNumber:'Tracking details not yet available';
      const detail=row.event==='CONFIRMED'?currency(o.totalPaise)+'; '+(o.paymentMethod==='COD'?'Cash on Delivery':'Online test payment confirmed'):row.event==='SHIPPED'||row.event==='OUT_FOR_DELIVERY'?tracking:row.event==='DELIVERED'?'Thank you for shopping with LUMIÈRE.':row.event==='PACKING'?'Your items are being prepared.':'Your order was cancelled.';
      if(row.channel==='EMAIL'){
       if(!o.user.emailVerifiedAt||o.user.email.toLowerCase()!==process.env.ORDER_EMAIL_TEST_RECIPIENT?.trim().toLowerCase()){await db.orderNotification.update({where:{id:row.id},data:{status:'SKIPPED'}});continue;}
-      await transport!.sendMail({from:process.env.SMTP_FROM,to:o.user.email,subject:'[TEST] LUMIÈRE — '+title+' #'+ref,text:'Hello '+o.user.name+',\n\n'+title+' — order #'+ref+'\n'+detail+'\n'+o.items.map(i=>i.name+' ('+i.size+' / '+i.color+') x '+i.quantity).join('\n')+'\nTotal: '+currency(o.totalPaise)+'\nView order: '+link+'\n\nDevelopment test only. No actual shipment or payment.'});
+      const email=renderOrderEmail({event:row.event,orderId:o.id,customerName:o.user.name,paymentMethod:o.paymentMethod,subtotalPaise:o.subtotalPaise,shippingPaise:o.shippingPaise,discountPaise:o.discountPaise,totalPaise:o.totalPaise,carrier:o.carrier,trackingNumber:o.trackingNumber,origin,cloudName:process.env.CLOUDINARY_CLOUD_NAME,items:o.items.map(i=>({name:i.name,size:i.size,color:i.color,quantity:i.quantity,unitPricePaise:i.unitPricePaise,imageUrl:i.variant.product.images[0]?.url}))});
+      await transport!.sendMail({from:process.env.SMTP_FROM,to:o.user.email,...email});
      }else{
       if(!o.whatsappNumber||o.whatsappNumber!==process.env.WHATSAPP_TEST_RECIPIENT){await db.orderNotification.update({where:{id:row.id},data:{status:'SKIPPED'}});continue;}
       const template=process.env['WHATSAPP_TEMPLATE_'+row.event];
