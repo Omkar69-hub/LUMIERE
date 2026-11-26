@@ -35,6 +35,7 @@ test('admin authorization, customer suspension and safe fulfillment',async()=>{
  await patch('/api/admin/orders/'+o.id+'/fulfillment',{status:'PACKING'}).expect(200);
  await patch('/api/admin/orders/'+o.id+'/fulfillment',{status:'SHIPPED'}).expect(400);
  await patch('/api/admin/orders/'+o.id+'/fulfillment',{status:'SHIPPED',carrier:'Test carrier',trackingNumber:'123'}).expect(200);
+ await patch('/api/admin/orders/'+o.id+'/fulfillment',{status:'OUT_FOR_DELIVERY'}).expect(200);
  await patch('/api/admin/orders/'+o.id+'/fulfillment',{status:'DELIVERED'}).expect(200);
  assert.equal((await customer.get('/api/orders/'+o.id).expect(200)).body.fulfillment,'DELIVERED');
  const events=(await admin.get('/api/admin/events').expect(200)).body.items;assert.ok(events.some((e:{targetId:string;action:string})=>e.targetId===o.id&&e.action==='FULFILLMENT_DELIVERED'));

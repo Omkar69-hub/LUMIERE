@@ -4,6 +4,7 @@ import { db } from '../../config/database.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { wrap,HttpError } from '../../middleware/http.js';
 import { requireUser,requireAdmin } from '../auth/session.js';
+import {queueOrderNotice} from '../orders/notifications.js';
 import { confirmPayment } from '../orders/routes.js';
 import type { Gateway } from '../payments/gateway.js';
 const uuid=z.string().uuid();
@@ -41,12 +42,12 @@ export function adminRoutes(gateway?:Gateway){
   const where:Prisma.OrderWhereInput={...(status?{status}:{}),...(q?{OR:[{id:{contains:q}},{user:{email:{contains:q,mode:'insensitive'}}}]}:{})};
   const rows=await db.order.findMany({where,include:orderInclude,orderBy:[{createdAt:'desc'},{id:'asc'}],skip:(page-1)*25,take:26});res.json({items:rows.slice(0,25),hasMore:rows.length>25});
  }));
- router.get('/orders/:id',wrap(async(req,res)=>{const order=await db.order.findUnique({where:{id:uuid.parse(req.params.id)},include:orderInclude});if(!order)throw new HttpError(404,'Order not found.');res.json(order);}));
+ router.get('/orders/:id',wrap(async(req,res)=>{const order=await db.order.findUnique({where:{id:uuid.parse(req.params.id)},include:{...orderInclude,notifications:{orderBy:{createdAt:'asc'}}}});if(!order)throw new HttpError(404,'Order not found.');res.json(order);}));
  router.patch('/orders/:id/fulfillment',wrap(async(req,res)=>{
-  const id=uuid.parse(req.params.id),v=z.object({status:z.enum(['PACKING','SHIPPED','DELIVERED']),carrier:text.optional(),trackingNumber:text.optional(),cashCollected:z.literal(true).optional()}).strict().parse(req.body);
+  const id=uuid.parse(req.params.id),v=z.object({status:z.enum(['PACKING','SHIPPED','OUT_FOR_DELIVERY','DELIVERED']),carrier:text.optional(),trackingNumber:text.optional(),cashCollected:z.literal(true).optional()}).strict().parse(req.body);
   if(v.status==='SHIPPED'&&(!v.carrier||!v.trackingNumber))throw new HttpError(400,'Carrier and tracking number are required.');
   if(v.status!=='SHIPPED'&&(v.carrier||v.trackingNumber))throw new HttpError(400,'Tracking details belong to shipment.');
-  const prior={PACKING:'UNFULFILLED',SHIPPED:'PACKING',DELIVERED:'SHIPPED'} as const;
+  const prior={PACKING:'UNFULFILLED',SHIPPED:'PACKING',OUT_FOR_DELIVERY:'SHIPPED',DELIVERED:'OUT_FOR_DELIVERY'} as const;
   await db.$transaction(async tx=>{
    await tx.$queryRaw `SELECT "id" FROM "Order" WHERE "id" = ${id} FOR UPDATE`;
    const order=await tx.order.findUnique({where:{id}});
@@ -57,13 +58,14 @@ export function adminRoutes(gateway?:Gateway){
    if(collect!==!!v.cashCollected)throw new HttpError(400,'Confirm test cash collection only when delivering a COD order.');
    await tx.order.update({where:{id},data:{fulfillment:v.status,...(v.status==='SHIPPED'?{carrier:v.carrier,trackingNumber:v.trackingNumber}:{}),...(collect?{status:'PAID',paidAt:new Date()}: {})}});
    await audit(tx,res.locals.user.id,'FULFILLMENT_'+v.status,id);
+   await queueOrderNotice(tx,id,v.status);
    if(collect)await audit(tx,res.locals.user.id,'COD_TEST_CASH_COLLECTED',id);
   });
   res.json({message:'Fulfillment updated.'});
  }));
  router.post('/orders/:id/cancel',wrap(async(req,res)=>{
   const id=uuid.parse(req.params.id);
-  await db.$transaction(async tx=>{const changed=await tx.order.updateMany({where:{id,status:'PENDING_PAYMENT',gatewayState:'NEW',fulfillment:'UNFULFILLED'},data:{status:'CANCELLED'}});if(!changed.count)throw new HttpError(409,'Only orders without started gateway payment can be cancelled.');const items=await tx.orderItem.findMany({where:{orderId:id},orderBy:{variantId:'asc'}});for(const item of items)await tx.productVariant.update({where:{id:item.variantId},data:{stock:{increment:item.quantity}}});await audit(tx,res.locals.user.id,'ORDER_CANCEL',id);});res.status(204).end();
+  await db.$transaction(async tx=>{const changed=await tx.order.updateMany({where:{id,status:'PENDING_PAYMENT',gatewayState:'NEW',fulfillment:'UNFULFILLED'},data:{status:'CANCELLED'}});if(!changed.count)throw new HttpError(409,'Only orders without started gateway payment can be cancelled.');const items=await tx.orderItem.findMany({where:{orderId:id},orderBy:{variantId:'asc'}});for(const item of items)await tx.productVariant.update({where:{id:item.variantId},data:{stock:{increment:item.quantity}}});await audit(tx,res.locals.user.id,'ORDER_CANCEL',id);await queueOrderNotice(tx,id,'CANCELLED');});res.status(204).end();
  }));
  router.post('/orders/:id/reconcile',wrap(async(req,res)=>{
   if(!gateway)throw new HttpError(503,'Test payment provider is not configured.');

@@ -84,11 +84,15 @@ test('checkout reservation, idempotency, cancellation and captured payment',asyn
   await advance({status:'PACKING'}).expect(200);
   await codPost('/api/orders/'+delivery.id+'/cancel',{}).expect(409);
   await advance({status:'SHIPPED',carrier:'Test carrier',trackingNumber:'TEST123'}).expect(200);
+  await advance({status:'DELIVERED'}).expect(409);
+  await advance({status:'OUT_FOR_DELIVERY'}).expect(200);
   await advance({status:'DELIVERED'}).expect(400);
   await advance({status:'DELIVERED',cashCollected:true}).expect(200);
   await advance({status:'DELIVERED',cashCollected:true}).expect(409);
   const delivered=(await customer.get('/api/orders/'+delivery.id).expect(200)).body;
   assert.equal(delivered.status,'PAID');assert.equal(delivered.fulfillment,'DELIVERED');assert.ok(delivered.paidAt);
+  const notices=await db.orderNotification.findMany({where:{orderId:delivery.id,channel:'EMAIL'},orderBy:{createdAt:'asc'}});assert.deepEqual(notices.map(n=>n.event),['CONFIRMED','PACKING','SHIPPED','OUT_FOR_DELIVERY','DELIVERED']);
+  assert.equal(await db.orderNotification.count({where:{orderId:next.id,event:'CONFIRMED'}}),1);
  }finally{
   if(priorFlag===undefined)delete process.env.COD_TEST_ENABLED;else process.env.COD_TEST_ENABLED=priorFlag;
   const adminUser=await db.user.findUnique({where:{email:adminEmail}});

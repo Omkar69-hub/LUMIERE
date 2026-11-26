@@ -6,9 +6,10 @@ import { wrap,HttpError } from '../../middleware/http.js';
 import {couponCode,calculateDiscount} from '../commerce/coupons.js';
 import { requireUser } from '../auth/session.js';
 import type { Gateway,GatewayPayment } from '../payments/gateway.js';
+import {queueOrderNotice,whatsappTestAvailable} from './notifications.js';
 const uuid=z.string().uuid();
 const orderInclude={items:true} as const;
-const publicOrder=(o:Prisma.OrderGetPayload<{include:typeof orderInclude}>)=>({id:o.id,paymentMethod:o.paymentMethod,status:o.status,gatewayState:o.gatewayState,fulfillment:o.fulfillment,trackingNumber:o.trackingNumber,carrier:o.carrier,subtotalPaise:o.subtotalPaise,shippingPaise:o.shippingPaise,discountPaise:o.discountPaise,couponCode:o.couponCode,totalPaise:o.totalPaise,address:o.addressSnapshot,items:o.items,createdAt:o.createdAt,paidAt:o.paidAt});
+const publicOrder=(o:Prisma.OrderGetPayload<{include:typeof orderInclude}>)=>({id:o.id,whatsappOptedIn:!!o.whatsappNumber,paymentMethod:o.paymentMethod,status:o.status,gatewayState:o.gatewayState,fulfillment:o.fulfillment,trackingNumber:o.trackingNumber,carrier:o.carrier,subtotalPaise:o.subtotalPaise,shippingPaise:o.shippingPaise,discountPaise:o.discountPaise,couponCode:o.couponCode,totalPaise:o.totalPaise,address:o.addressSnapshot,items:o.items,createdAt:o.createdAt,paidAt:o.paidAt});
 const verified=(res:{locals:Record<string,any>})=>{if(!res.locals.user.emailVerifiedAt)throw new HttpError(403,'Verify your email before checkout.');};
 const codEnabled=()=>process.env.NODE_ENV!=='production'&&process.env.COD_TEST_ENABLED==='true';
 const shipping=0; // Explicit development/test policy only; change before release.
@@ -23,13 +24,13 @@ export async function confirmPayment(payment:GatewayPayment,eventId?:string){
   if(latest.status==='PAID'&&latest.providerPaymentId!==payment.id)throw new HttpError(409,'Payment conflict requires review.');
   if(latest.status==='CANCELLED')throw new HttpError(409,'Cancelled order requires payment review.');
   if(eventId){const added=await tx.paymentEvent.createMany({data:[{id:eventId}],skipDuplicates:true});if(!added.count)return true;}
-  if(latest.status!=='PAID')await tx.order.update({where:{id:order.id},data:{status:'PAID',providerPaymentId:payment.id,paidAt:new Date()}});
+  if(latest.status!=='PAID'){await tx.order.update({where:{id:order.id},data:{status:'PAID',providerPaymentId:payment.id,paidAt:new Date()}});await queueOrderNotice(tx,order.id,'CONFIRMED');}
   return true;
  });
 }
 export function orderRoutes(gateway?:Gateway){
  const router=Router();router.use(requireUser);
- router.get('/configuration',(_req,res)=>res.json({paymentEnabled:!!gateway,codEnabled:codEnabled(),testMode:true,shippingPaise:shipping}));
+ router.get('/configuration',(_req,res)=>res.json({paymentEnabled:!!gateway,codEnabled:codEnabled(),whatsappEnabled:whatsappTestAvailable(),testMode:true,shippingPaise:shipping}));
  router.get('/',wrap(async(req,res)=>{const {page}=z.object({page:z.coerce.number().int().min(1).max(1000).default(1)}).strict().parse(req.query);const rows=await db.order.findMany({where:{userId:res.locals.user.id},include:orderInclude,orderBy:[{createdAt:'desc'},{id:'asc'}],skip:(page-1)*20,take:21});res.json({items:rows.slice(0,20).map(publicOrder),hasMore:rows.length>20});}));
  router.post('/quote',wrap(async(req,res)=>{
   const {coupon}=z.object({coupon:couponCode.optional()}).strict().parse(req.body);
@@ -43,7 +44,8 @@ export function orderRoutes(gateway?:Gateway){
  router.get('/:id',wrap(async(req,res)=>{const o=await db.order.findFirst({where:{id:uuid.parse(req.params.id),userId:res.locals.user.id},include:orderInclude});if(!o)throw new HttpError(404,'Order not found.');res.json(publicOrder(o));}));
  router.post('/',wrap(async(req,res)=>{
   verified(res);
-  const {addressId,requestKey,expectedTotalPaise,coupon,paymentMethod}=z.object({addressId:uuid,requestKey:uuid,expectedTotalPaise:z.number().int().min(1).max(2000000000),coupon:couponCode.optional(),paymentMethod:z.enum(['ONLINE','COD']).default('ONLINE')}).strict().parse(req.body),userId:string=res.locals.user.id;
+  const {addressId,requestKey,expectedTotalPaise,coupon,paymentMethod,whatsappNumber}=z.object({addressId:uuid,requestKey:uuid,expectedTotalPaise:z.number().int().min(1).max(2000000000),coupon:couponCode.optional(),paymentMethod:z.enum(['ONLINE','COD']).default('ONLINE'),whatsappNumber:z.string().regex(/^\+[1-9][0-9]{9,14}$/).optional()}).strict().parse(req.body),userId:string=res.locals.user.id;
+  if(whatsappNumber&&(!whatsappTestAvailable()||whatsappNumber!==process.env.WHATSAPP_TEST_RECIPIENT))throw new HttpError(400,'WhatsApp is available only for the configured test recipient.');
   if(paymentMethod==='COD'?!codEnabled():!gateway)throw new HttpError(503,'Selected test payment method is not configured.');
   const o=await db.$transaction(async tx=>{
    const account=await tx.$queryRaw<{suspendedAt:Date|null}[]> `SELECT "suspendedAt" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
@@ -66,17 +68,20 @@ export function orderRoutes(gateway?:Gateway){
    const discount=await calculateDiscount(tx,subtotal,coupon,true);
    const total=subtotal+shipping-discount.discountPaise;if(total!==expectedTotalPaise||total<100||total>2000000000)throw new HttpError(409,'Price changed or total outside supported range.');
    const {recipient,line1,city,state,postalCode,country}=address;
-   const result=await tx.order.create({data:{userId,requestKey,paymentMethod,addressSnapshot:{recipient,line1,city,state,postalCode,country},subtotalPaise:subtotal,shippingPaise:shipping,...discount,totalPaise:total,items:{create:items}},include:orderInclude});
+   const result=await tx.order.create({data:{userId,requestKey,paymentMethod,whatsappNumber,addressSnapshot:{recipient,line1,city,state,postalCode,country},subtotalPaise:subtotal,shippingPaise:shipping,...discount,totalPaise:total,items:{create:items}},include:orderInclude});
+   if(paymentMethod==='COD')await queueOrderNotice(tx,result.id,'CONFIRMED');
    for(const row of rows){const removed=await tx.cartItem.deleteMany({where:{id:row.id,userId,quantity:row.quantity,updatedAt:row.updatedAt}});if(!removed.count)throw new HttpError(409,'Bag changed. Try again.');}
    return result;
   },{timeout:15000});
   res.status(201).json(publicOrder(o));
  }));
+ router.post('/:id/whatsapp-opt-out',wrap(async(req,res)=>{const id=uuid.parse(req.params.id);const changed=await db.order.updateMany({where:{id,userId:res.locals.user.id},data:{whatsappNumber:null}});if(!changed.count)throw new HttpError(404,'Order not found.');res.status(204).end();}));
  router.post('/:id/cancel',wrap(async(req,res)=>{
   const id=uuid.parse(req.params.id),userId:string=res.locals.user.id;
   await db.$transaction(async tx=>{
    const changed=await tx.order.updateMany({where:{id,userId,status:'PENDING_PAYMENT',gatewayState:'NEW',fulfillment:'UNFULFILLED'},data:{status:'CANCELLED'}});if(!changed.count)throw new HttpError(409,'Only unfulfilled orders without started gateway payment can be cancelled.');
    const items=await tx.orderItem.findMany({where:{orderId:id},orderBy:{variantId:'asc'}});for(const i of items)await tx.productVariant.update({where:{id:i.variantId},data:{stock:{increment:i.quantity}}});
+   await queueOrderNotice(tx,id,'CANCELLED');
   });res.status(204).end();
  }));
  router.post('/:id/payment',wrap(async(req,res)=>{
