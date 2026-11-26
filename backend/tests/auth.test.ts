@@ -25,6 +25,9 @@ test('database-backed authentication, recovery and access controls',async()=>{
  await agent.patch('/api/users/me').set('Origin',origin).send({name:'Updated Customer'}).expect(200);
  await agent.post('/api/addresses').set('Origin',origin).send({recipient:'Test Customer',line1:'Test street',city:'Pune',state:'Maharashtra',postalCode:'411001'}).expect(201);
  await agent.get('/api/admin/access').expect(403);
+ const overview=await agent.get('/api/users/me/overview').expect(200);assert.deepEqual(overview.body,{orders:0,delivered:0,saved:0,returns:0,recent:null});
+ const returnList=await agent.get('/api/users/me/returns').expect(200);assert.deepEqual(returnList.body,{items:[],hasMore:false});
+ await request(app).get('/api/users/me/overview').expect(401);await request(app).get('/api/users/me/returns').expect(401);
  const verify=new URL(delivered.find(x=>x.purpose==='VERIFY_EMAIL')!.url).hash.slice(7);
  await post('/api/auth/verify-email',{token:verify}).expect(200);
  await post('/api/auth/verify-email',{token:verify}).expect(400);

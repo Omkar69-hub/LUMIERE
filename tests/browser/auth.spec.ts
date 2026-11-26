@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
-test('register, sign out, sign in, persist and protect account',async({page})=>{
+test('register, sign out, sign in, persist and protect account',async({page,isMobile})=>{
  const email=randomUUID()+'@example.invalid',password='Browser test password 123';
  await page.goto('/signup');
  await expect(page.getByRole('heading',{name:'Create your account'})).toBeVisible();
@@ -19,10 +19,16 @@ test('register, sign out, sign in, persist and protect account',async({page})=>{
  await page.getByRole('button',{name:'Create account'}).click();
  await expect(page).toHaveURL(/\/account$/);
  await expect(page.getByRole('heading',{name:'Welcome, Browser Customer.'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'My Account',exact:true})).toBeVisible();
+ await expect(page.getByText('Your first LUMIÈRE piece awaits.')).toBeVisible();
+ if(isMobile)await page.getByRole('button',{name:'Sections',exact:true}).click();
+ await page.getByRole('navigation',{name:'Account sections'}).getByRole('link',{name:'Profile',exact:true}).click();
  await page.getByLabel('Name',{exact:true}).fill('Updated Browser Customer');
  await page.getByRole('button',{name:'Save profile'}).click();
  await expect(page.getByRole('status')).toContainText('Profile saved');
  await page.reload();
+ await expect(page.getByLabel('Name',{exact:true})).toHaveValue('Updated Browser Customer');
+ await page.getByRole('link',{name:'Back to overview'}).click();
  await expect(page.getByRole('heading',{name:'Welcome, Updated Browser Customer.'})).toBeVisible();
  await page.getByRole('button',{name:'Sign out'}).click();
  await expect(page).toHaveURL(/\/login$/);
