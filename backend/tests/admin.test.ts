@@ -20,7 +20,7 @@ test('admin authorization, customer suspension and safe fulfillment',async()=>{
  await login(customer,c.email).expect(200);
  for(const route of ['/overview','/customers','/orders','/events','/catalog/categories'])await customer.get('/api/admin'+route).expect(403);
  await login(admin,a.email).expect(200);
- const overview=(await admin.get('/api/admin/overview').expect(200)).body;assert.equal(overview.testMode,true);assert.equal(typeof overview.revenuePaise,'number');
+ const overview=(await admin.get('/api/admin/overview').expect(200)).body;assert.equal(overview.testMode,true);assert.equal(typeof overview.revenuePaise,'number');assert.equal(typeof overview.availableStock,'number');assert.equal(typeof overview.openSupport,'number');assert.ok(Array.isArray(overview.recent));assert.ok(Array.isArray(overview.alerts));
  const list=(await admin.get('/api/admin/customers').query({q:tag}).expect(200)).body;assert.equal(list.items.length,1);assert.equal(list.items[0].passwordHash,undefined);
  await patch('/api/admin/customers/'+a.id+'/status',{suspended:true}).expect(404);
  await admin.patch('/api/admin/customers/'+c.id+'/status').send({suspended:true}).expect(403);

@@ -17,12 +17,15 @@ export function adminRoutes(gateway?:Gateway){
  const router=Router();router.use(requireUser,requireAdmin);
  router.get('/overview',wrap(async(req,res)=>{
   const {days}=z.object({days:z.coerce.number().int().min(1).max(365).default(30)}).strict().parse(req.query),since=new Date(Date.now()-days*86400000);
-  const [customers,products,variants,lowStock,orders,pending,paid,revenue,top,series]=await db.$transaction([
+  const [customers,products,variants,lowStock,orders,pending,paid,revenue,top,series,stock,openSupport,requestedReturns,approvedReturns,receivedReturns,recent,alerts]=await db.$transaction([
    db.user.count({where:{role:'CUSTOMER'}}),db.product.count({where:{published:true}}),db.productVariant.count(),db.productVariant.count({where:{stock:{lte:5},product:{published:true}}}),db.order.count({where:{createdAt:{gte:since}}}),db.order.count({where:{status:'PENDING_PAYMENT'}}),db.order.count({where:{status:'PAID',paidAt:{gte:since}}}),db.order.aggregate({where:{status:'PAID',paidAt:{gte:since}},_sum:{totalPaise:true}}),
    db.orderItem.groupBy({by:['name'],where:{order:{status:'PAID',paidAt:{gte:since}}},_sum:{quantity:true},orderBy:{_sum:{quantity:'desc'}},take:10}),
-   db.$queryRaw<{day:string;revenuePaise:bigint;orders:bigint}[]>`SELECT to_char("paidAt",'YYYY-MM-DD') AS day, SUM("totalPaise")::bigint AS "revenuePaise",COUNT(*) AS orders FROM "Order" WHERE status='PAID' AND "paidAt">=${since} GROUP BY 1 ORDER BY 1`
+   db.$queryRaw<{day:string;revenuePaise:bigint;orders:bigint}[]>`SELECT to_char("paidAt",'YYYY-MM-DD') AS day, SUM("totalPaise")::bigint AS "revenuePaise",COUNT(*) AS orders FROM "Order" WHERE status='PAID' AND "paidAt">=${since} GROUP BY 1 ORDER BY 1`,
+   db.productVariant.aggregate({where:{product:{published:true}},_sum:{stock:true}}),db.supportTicket.count({where:{status:'OPEN'}}),db.returnRequest.count({where:{status:'REQUESTED'}}),db.returnRequest.count({where:{status:'APPROVED'}}),db.returnRequest.count({where:{status:'RECEIVED'}}),
+   db.order.findMany({take:6,orderBy:[{createdAt:'desc'},{id:'asc'}],select:{id:true,status:true,fulfillment:true,paymentMethod:true,totalPaise:true,createdAt:true,user:{select:{name:true}}}}),
+   db.productVariant.findMany({where:{stock:{lte:5},product:{published:true}},take:8,orderBy:[{stock:'asc'},{id:'asc'}],select:{id:true,sku:true,size:true,color:true,stock:true,product:{select:{name:true}}}})
   ],{isolationLevel:Prisma.TransactionIsolationLevel.RepeatableRead});
-  res.json({testMode:true,days,customers,products,variants,lowStock,orders,pending,paid,revenuePaise:revenue._sum.totalPaise??0,top:top.map(x=>({name:x.name,quantity:x._sum?.quantity??0})),series:series.map(x=>({day:x.day,revenuePaise:Number(x.revenuePaise),orders:Number(x.orders)}))});
+  res.json({testMode:true,days,customers,products,variants,lowStock,orders,pending,paid,revenuePaise:revenue._sum.totalPaise??0,availableStock:stock._sum.stock??0,openSupport,requestedReturns,approvedReturns,receivedReturns,recent,alerts,top:top.map(x=>({name:x.name,quantity:x._sum?.quantity??0})),series:series.map(x=>({day:x.day,revenuePaise:Number(x.revenuePaise),orders:Number(x.orders)}))});
  }));
  router.get('/customers',wrap(async(req,res)=>{
   const {page,q}=pageSchema.parse(req.query);const where:Prisma.UserWhereInput={role:'CUSTOMER',...(q?{OR:[{email:{contains:q,mode:'insensitive'}},{name:{contains:q,mode:'insensitive'}}]}:{})};

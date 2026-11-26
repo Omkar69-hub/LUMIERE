@@ -1,0 +1,10 @@
+import {useState} from 'react';
+import {useQuery} from '@tanstack/react-query';
+import {api} from '../../services/api';
+import type {Product} from './types';
+import {useAction,Feedback,QueryState,Pager} from './shared';
+export function Inventory({uid}:{uid:string}){
+ const [page,setPage]=useState(1),[filter,setFilter]=useState('all'),action=useAction();const q=useQuery({queryKey:['admin',uid,'products',page],queryFn:()=>api<Product[]>('/admin/catalog/products?page='+page)});
+ const variants=(q.data??[]).flatMap(p=>p.variants.map(v=>({...v,product:p.name,published:p.published}))).filter(v=>filter==='all'||(filter==='low'&&v.stock<=5)||(filter==='out'&&v.stock===0));
+ return <section className="admin-card"><div className="between"><h2>Inventory management</h2><label>Stock filter (current page)<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All variants</option><option value="low">Low stock (≤5)</option><option value="out">Out of stock</option></select></label></div><p className="hint">Available units exclude reserved stock. Updates use the current recorded stock as a concurrency check. Filters apply to this page of products, including drafts.</p><Feedback action={action}/><QueryState pending={q.isPending} error={q.error}>{variants.length===0?<p>No matching variants on this page.</p>:variants.map(v=><form key={v.id+':'+v.stock} className="admin-line admin-form-grid" onSubmit={e=>{e.preventDefault();void action.run('/catalog/variants/'+v.id+'/stock','PATCH',{stock:Number(new FormData(e.currentTarget).get('stock')),expectedStock:v.stock});}}><div><strong>{v.product}</strong><p>{v.sku} · {v.size} / {v.color}</p><span className={'admin-status '+(v.stock<=5?'warning':'good')}>{v.stock===0?'Out of stock':v.stock<=5?'Low stock':'In stock'} · {v.published?'Published':'Draft'}</span></div><label>Available units<input name="stock" type="number" required min="0" max="1000000" defaultValue={v.stock}/></label><button disabled={action.busy}>Update stock</button></form>)}<Pager page={page} setPage={setPage} more={(q.data?.length??0)===25}/></QueryState></section>;
+}
