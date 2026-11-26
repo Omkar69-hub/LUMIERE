@@ -41,7 +41,7 @@ export function orderRoutes(gateway?:Gateway){
    const discount=await calculateDiscount(tx,subtotalPaise,coupon);return {subtotalPaise,shippingPaise:shipping,...discount,totalPaise:subtotalPaise+shipping-discount.discountPaise};
   });res.json(quote);
  }));
- router.get('/:id',wrap(async(req,res)=>{const o=await db.order.findFirst({where:{id:uuid.parse(req.params.id),userId:res.locals.user.id},include:orderInclude});if(!o)throw new HttpError(404,'Order not found.');res.json(publicOrder(o));}));
+ router.get('/:id',wrap(async(req,res)=>{const o=await db.order.findFirst({where:{id:uuid.parse(req.params.id),userId:res.locals.user.id},include:{items:{include:{variant:{select:{product:{select:{images:{orderBy:{position:'asc'},take:1,select:{url:true}}}}}}}}}});if(!o)throw new HttpError(404,'Order not found.');res.json({...publicOrder(o),items:o.items.map(({variant,...item})=>({...item,imageUrl:variant.product.images[0]?.url??null}))});}));
  router.post('/',wrap(async(req,res)=>{
   verified(res);
   const {addressId,requestKey,expectedTotalPaise,coupon,paymentMethod,whatsappNumber}=z.object({addressId:uuid,requestKey:uuid,expectedTotalPaise:z.number().int().min(1).max(2000000000),coupon:couponCode.optional(),paymentMethod:z.enum(['ONLINE','COD']).default('ONLINE'),whatsappNumber:z.string().regex(/^\+[1-9][0-9]{9,14}$/).optional()}).strict().parse(req.body),userId:string=res.locals.user.id;
