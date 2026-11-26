@@ -1,0 +1,67 @@
+/* LUMIÈRE — Nocturne / signature motion system.
+   Local CSS and SVG, bounded animation, no artificial metrics or external requests. */
+.account-page,.admin-shell{--studio-ink:#151412;--studio-gold:#9a8265;--studio-metal:#d9bc94;--studio-ease:cubic-bezier(.22,1,.36,1);--studio-edge:#ded5c7}
+.account-page .account-sidebar,.admin-shell .admin-sidebar{background:linear-gradient(155deg,#211e1a 0%,#151412 42%,#171717 100%);border-right:1px solid #3b342a}
+.account-page .account-navigation a,.admin-shell .admin-nav button{position:relative;border-radius:4px;transition:background .28s var(--studio-ease),color .28s,border-color .28s}
+.account-page .account-navigation a[aria-current=page],.admin-shell .admin-nav button[aria-current=page]{background:linear-gradient(90deg,#514336,#2b2722);border-color:#65533d}
+.account-page .account-navigation a[aria-current=page]::before,.admin-shell .admin-nav button[aria-current=page]::before{content:"";position:absolute;left:0;top:18%;bottom:18%;width:2px;background:#dfbd8b;border-radius:2px}
+.account-page .account-avatar{box-shadow:0 0 0 4px #d9bc9410;background:linear-gradient(140deg,#393027,#171717)}
+.account-page .account-shell{border-radius:8px;box-shadow:0 18px 55px #3826170b}
+.account-page .account-sidebar{border-radius:7px 0 0 7px}
+.account-page .account-workspace,.admin-shell .admin-body{background:radial-gradient(ellipse at 100% 0%,#e9dfce65,transparent 45%)}
+.account-page .studio-hero,.admin-shell .studio-hero{position:relative;isolation:isolate;display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,35%);align-items:center;gap:1rem;min-height:238px;padding:clamp(1.4rem,3vw,2.7rem);overflow:hidden;color:#f5f1ea;background:radial-gradient(ellipse at 83% 45%,#67513a 0%,#32291f 28%,transparent 62%),linear-gradient(125deg,#141311 0%,#211e19 65%,#171717 100%);border:1px solid #66513b;border-radius:6px;box-shadow:0 16px 34px #30211622;margin-bottom:1.3rem}
+.studio-hero::before{content:"";position:absolute;z-index:-1;inset:0;pointer-events:none;opacity:.23;background:repeating-linear-gradient(118deg,transparent 0 36px,#d9bc9418 37px,transparent 38px 73px);mask-image:linear-gradient(90deg,transparent 20%,#000)}
+.studio-hero::after{content:"";position:absolute;z-index:-1;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent 25%,#e5c69b13 47%,transparent 65%);transform:translateX(-115%);animation:studio-light-pass 1.8s .15s var(--studio-ease) both}
+.studio-hero-copy{position:relative;z-index:1;min-width:0;overflow-wrap:break-word}
+.account-page .studio-hero .eyebrow,.admin-shell .studio-hero .eyebrow{color:#d9bc94;letter-spacing:.21em;font-size:.68rem;margin:0 0 .7rem}
+.account-page .studio-hero h1,.admin-shell .studio-hero h1{font-size:clamp(2.6rem,4.8vw,4.5rem);color:#fff8ec;line-height:1.04;margin:.15rem 0 .65rem}
+.account-page .studio-hero h2{color:#f5f1ea;font-size:clamp(1rem,1.6vw,1.3rem)}
+.account-page .studio-hero p:not(.eyebrow),.studio-hero-description{color:#d5cbbd;font-size:.86rem;max-width:38rem;line-height:1.65;margin:.45rem 0}
+.studio-hero-link{display:inline-flex;align-items:center;gap:.6rem;color:#ead0a8;border-bottom:1px solid #b69a70;padding:.4rem 0;text-decoration:none;font-size:.8rem;margin-top:.55rem}
+.studio-hero-link svg{width:17px;height:17px;transition:transform .3s var(--studio-ease)}
+.studio-hero-link:hover svg{transform:translateX(4px)}
+.studio-hero a:focus-visible{outline-color:#ead0a8}
+.studio-emblem{display:grid;justify-items:center;align-items:center;min-width:0;color:#d7b886;pointer-events:none;user-select:none}
+.studio-emblem svg{display:block;width:100%;max-width:300px;height:auto;overflow:visible}
+.studio-orbit-a{opacity:.45;transform-origin:160px 120px;animation:studio-orbit 1.7s var(--studio-ease) both}
+.studio-orbit-b{opacity:.7;transform-origin:160px 120px;animation:studio-orbit-back 1.5s var(--studio-ease) both}
+.studio-stars{opacity:.9;animation:studio-star-in 1.1s .3s both}
+.studio-emblem-letter{animation:studio-star-in .85s .16s both}
+.studio-emblem-caption{font-size:.54rem;letter-spacing:.26em;text-align:center;color:#d9bc94;margin-top:-.2rem}
+.admin-shell .studio-hero--operations{background:radial-gradient(ellipse at 84% 45%,#4e4231 0%,#29261f 34%,transparent 66%),linear-gradient(120deg,#111310,#1b1d18 65%,#171717);min-height:210px}
+.studio-test-indicator{display:inline-flex;align-items:center;gap:.45rem;color:#e5d2b4;border:1px solid #7b674c;padding:.3rem .6rem;border-radius:3px;font-size:.7rem;margin-top:.6rem}
+.studio-test-indicator>span{width:6px;height:6px;border-radius:50%;background:#d9bc94;box-shadow:0 0 0 3px #d9bc9420}
+.admin-shell .studio-section-heading{border-bottom:1px solid var(--studio-edge);padding-bottom:.65rem}
+.account-page .account-metric,.account-page .account-card,.admin-shell .admin-card{border-color:var(--studio-edge);border-radius:6px;box-shadow:0 8px 24px #38261708}
+.account-page .account-metric,.admin-shell .admin-kpi{position:relative;isolation:isolate;overflow:hidden;transition:transform .35s var(--studio-ease),box-shadow .35s,border-color .35s;background:linear-gradient(145deg,#fff 65%,#f7f3eb)}
+.account-page .account-metric::before,.admin-shell .admin-kpi::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(ellipse at 100% 0%,#cfb48a35,transparent 60%);opacity:0;transition:opacity .35s;pointer-events:none}
+.account-page .account-metric::after,.admin-shell .admin-kpi::after{content:"";position:absolute;bottom:0;left:0;width:100%;height:2px;background:linear-gradient(90deg,#9a8265,#e7d5b7,transparent);transform:scaleX(0);transform-origin:left;transition:transform .45s var(--studio-ease);pointer-events:none}
+.account-page .account-metric:focus-visible,.admin-shell .admin-kpi:focus-within{border-color:#9a8265}
+.account-page .account-metric:focus-visible::after,.admin-shell .admin-kpi:focus-within::after{transform:scaleX(1)}
+.account-page .account-metric strong,.admin-shell .admin-kpi strong{font-variant-numeric:lining-nums tabular-nums}
+.account-page .account-metric>svg,.admin-shell .admin-kpi>.admin-icon{background:#f5f1ea;border:1px solid #e8dfd1;box-sizing:content-box;padding:8px;border-radius:50%;color:#856b49}
+.account-page .account-concierge{background:linear-gradient(150deg,#f8f4ec,#ede5d7);border-color:#d6c8b3}
+.account-page .studio-recent .order-item-photo,.account-page .account-saved-photo{border-radius:3px;overflow:hidden}
+.account-page .account-order-summary img,.account-page .account-saved-photo img{transition:transform .6s var(--studio-ease)}
+.account-page .account-full,.account-page .account-form .primary,.admin-shell .primary{background:linear-gradient(115deg,#171717,#342b22);border-color:#342b22;transition:background .3s,box-shadow .3s}
+.account-page .account-full:hover,.account-page .account-form .primary:hover,.admin-shell .primary:hover{background:#46382a;box-shadow:0 4px 16px #4a34271c}
+.admin-shell .admin-table th{background:#f0eadf;color:#514638}
+.admin-shell .admin-table tbody tr{transition:background .2s}
+.admin-shell .admin-chart svg{overflow:visible}
+.studio-chart-line{stroke-dasharray:1;stroke-dashoffset:0;animation:studio-draw .85s var(--studio-ease) both}
+.studio-chart-area{animation:studio-star-in .75s .1s both}
+.account-page .account-workspace>.account-intro,.admin-shell .admin-body>.admin-page-heading{animation:studio-reveal .55s var(--studio-ease) backwards}
+.account-page .account-metric,.admin-shell .admin-kpi{animation:studio-reveal .52s var(--studio-ease) backwards}
+.account-page .account-metric:nth-child(2),.admin-shell .admin-kpi:nth-child(2){animation-delay:.06s}
+.account-page .account-metric:nth-child(3),.admin-shell .admin-kpi:nth-child(3){animation-delay:.12s}
+.account-page .account-metric:nth-child(4),.admin-shell .admin-kpi:nth-child(4){animation-delay:.18s}
+.account-page .account-overview-grid,.account-page .account-workspace>.account-card,.admin-shell .admin-body>.admin-card,.admin-shell .admin-dashboard-grid{animation:studio-reveal .48s .07s var(--studio-ease) backwards}
+@keyframes studio-reveal{from{opacity:.65;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes studio-light-pass{from{transform:translateX(-115%)}to{transform:translateX(115%)}}
+@keyframes studio-orbit{from{transform:rotate(-30deg);opacity:.15}to{transform:rotate(0);opacity:.45}}
+@keyframes studio-orbit-back{from{transform:rotate(25deg);opacity:.2}to{transform:rotate(0);opacity:.7}}
+@keyframes studio-star-in{from{opacity:.35}to{opacity:1}}
+@keyframes studio-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@media(hover:hover) and (pointer:fine){.account-page .account-metric:hover,.admin-shell .admin-kpi:hover{transform:translateY(-3px);border-color:#b9a283;box-shadow:0 12px 24px #5d43231a}.account-page .account-metric:hover::before,.admin-shell .admin-kpi:hover::before{opacity:1}.account-page .account-metric:hover::after,.admin-shell .admin-kpi:hover::after{transform:scaleX(1)}.account-page .account-order-summary:hover img,.account-page .account-saved-photo:hover img{transform:scale(1.045)}}
+@media(max-width:760px){.account-page .account-sidebar{border-radius:7px 7px 0 0}.account-page .studio-hero,.admin-shell .studio-hero{grid-template-columns:minmax(0,1fr);gap:.25rem;min-height:0;padding:1.2rem;isolation:isolate}.studio-hero-copy{z-index:1}.studio-emblem{position:absolute;z-index:-1;right:-28px;top:3px;width:155px;opacity:.25}.studio-emblem-caption{display:none}.account-page .studio-hero h1,.admin-shell .studio-hero h1{font-size:2.6rem}.account-page .studio-hero p:not(.eyebrow),.studio-hero-description{font-size:.8rem;max-width:27ch}.account-page .studio-hero .eyebrow,.admin-shell .studio-hero .eyebrow{font-size:.6rem;letter-spacing:.13em}.account-page .account-metric>svg,.admin-shell .admin-kpi>.admin-icon{padding:6px}.account-page .account-metric,.admin-shell .admin-kpi{min-width:0}}
+@media(prefers-reduced-motion:reduce){.account-page .account-workspace *, .admin-shell .admin-body *,.account-page .account-sidebar *,.admin-shell .admin-sidebar *,.studio-hero::before,.studio-hero::after,.account-page .account-metric::before,.account-page .account-metric::after,.admin-shell .admin-kpi::before,.admin-shell .admin-kpi::after{animation:none!important;transition:none!important}.studio-hero::after{opacity:0}.account-page .account-metric:hover,.admin-shell .admin-kpi:hover,.account-page .account-order-summary:hover img,.account-page .account-saved-photo:hover img,.studio-hero-link:hover svg{transform:none!important}.studio-chart-line{stroke-dashoffset:0}}
