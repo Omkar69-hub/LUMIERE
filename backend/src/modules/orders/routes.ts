@@ -8,14 +8,15 @@ import { requireUser } from '../auth/session.js';
 import type { Gateway,GatewayPayment } from '../payments/gateway.js';
 const uuid=z.string().uuid();
 const orderInclude={items:true} as const;
-const publicOrder=(o:Prisma.OrderGetPayload<{include:typeof orderInclude}>)=>({id:o.id,status:o.status,gatewayState:o.gatewayState,fulfillment:o.fulfillment,trackingNumber:o.trackingNumber,carrier:o.carrier,subtotalPaise:o.subtotalPaise,shippingPaise:o.shippingPaise,discountPaise:o.discountPaise,couponCode:o.couponCode,totalPaise:o.totalPaise,address:o.addressSnapshot,items:o.items,createdAt:o.createdAt,paidAt:o.paidAt});
+const publicOrder=(o:Prisma.OrderGetPayload<{include:typeof orderInclude}>)=>({id:o.id,paymentMethod:o.paymentMethod,status:o.status,gatewayState:o.gatewayState,fulfillment:o.fulfillment,trackingNumber:o.trackingNumber,carrier:o.carrier,subtotalPaise:o.subtotalPaise,shippingPaise:o.shippingPaise,discountPaise:o.discountPaise,couponCode:o.couponCode,totalPaise:o.totalPaise,address:o.addressSnapshot,items:o.items,createdAt:o.createdAt,paidAt:o.paidAt});
 const verified=(res:{locals:Record<string,any>})=>{if(!res.locals.user.emailVerifiedAt)throw new HttpError(403,'Verify your email before checkout.');};
+const codEnabled=()=>process.env.NODE_ENV!=='production'&&process.env.COD_TEST_ENABLED==='true';
 const shipping=0; // Explicit development/test policy only; change before release.
 export async function confirmPayment(payment:GatewayPayment,eventId?:string){
  if(payment.status!=='captured')return false;
  return db.$transaction(async tx=>{
   const order=await tx.order.findUnique({where:{providerOrderId:payment.order_id}});
-  if(!order)throw new HttpError(409,'Payment order not linked yet.');
+  if(!order||order.paymentMethod!=='ONLINE')throw new HttpError(409,'Payment order not linked yet.');
   if(payment.amount!==order.totalPaise||payment.currency!=='INR')throw new HttpError(409,'Payment amount or currency mismatch.');
   await tx.$queryRaw `SELECT "id" FROM "Order" WHERE "id" = ${order.id} FOR UPDATE`;
   const latest=await tx.order.findUniqueOrThrow({where:{id:order.id}});
@@ -28,7 +29,7 @@ export async function confirmPayment(payment:GatewayPayment,eventId?:string){
 }
 export function orderRoutes(gateway?:Gateway){
  const router=Router();router.use(requireUser);
- router.get('/configuration',(_req,res)=>res.json({paymentEnabled:!!gateway,testMode:true,shippingPaise:shipping}));
+ router.get('/configuration',(_req,res)=>res.json({paymentEnabled:!!gateway,codEnabled:codEnabled(),testMode:true,shippingPaise:shipping}));
  router.get('/',wrap(async(req,res)=>{const {page}=z.object({page:z.coerce.number().int().min(1).max(1000).default(1)}).strict().parse(req.query);const rows=await db.order.findMany({where:{userId:res.locals.user.id},include:orderInclude,orderBy:[{createdAt:'desc'},{id:'asc'}],skip:(page-1)*20,take:21});res.json({items:rows.slice(0,20).map(publicOrder),hasMore:rows.length>20});}));
  router.post('/quote',wrap(async(req,res)=>{
   const {coupon}=z.object({coupon:couponCode.optional()}).strict().parse(req.body);
@@ -41,12 +42,13 @@ export function orderRoutes(gateway?:Gateway){
  }));
  router.get('/:id',wrap(async(req,res)=>{const o=await db.order.findFirst({where:{id:uuid.parse(req.params.id),userId:res.locals.user.id},include:orderInclude});if(!o)throw new HttpError(404,'Order not found.');res.json(publicOrder(o));}));
  router.post('/',wrap(async(req,res)=>{
-  verified(res);if(!gateway)throw new HttpError(503,'Test payments are not configured.');
-  const {addressId,requestKey,expectedTotalPaise,coupon}=z.object({addressId:uuid,requestKey:uuid,expectedTotalPaise:z.number().int().min(1).max(2000000000),coupon:couponCode.optional()}).strict().parse(req.body),userId:string=res.locals.user.id;
+  verified(res);
+  const {addressId,requestKey,expectedTotalPaise,coupon,paymentMethod}=z.object({addressId:uuid,requestKey:uuid,expectedTotalPaise:z.number().int().min(1).max(2000000000),coupon:couponCode.optional(),paymentMethod:z.enum(['ONLINE','COD']).default('ONLINE')}).strict().parse(req.body),userId:string=res.locals.user.id;
+  if(paymentMethod==='COD'?!codEnabled():!gateway)throw new HttpError(503,'Selected test payment method is not configured.');
   const o=await db.$transaction(async tx=>{
    const account=await tx.$queryRaw<{suspendedAt:Date|null}[]> `SELECT "suspendedAt" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
    if(!account[0]||account[0].suspendedAt)throw new HttpError(401,'Please sign in.');
-   const existing=await tx.order.findUnique({where:{userId_requestKey:{userId,requestKey}},include:orderInclude});if(existing)return existing;
+   const existing=await tx.order.findUnique({where:{userId_requestKey:{userId,requestKey}},include:orderInclude});if(existing){if(existing.paymentMethod!==paymentMethod||existing.totalPaise!==expectedTotalPaise)throw new HttpError(409,'Order request already used with different details.');return existing;}
    const outstanding=await tx.order.count({where:{userId,status:'PENDING_PAYMENT'}});if(outstanding>=1)throw new HttpError(409,'Resolve your existing pending order before creating another.');
    const address=await tx.address.findFirst({where:{id:addressId,userId}});if(!address)throw new HttpError(404,'Address not found.');
    const rows=await tx.cartItem.findMany({where:{userId},include:{variant:{include:{product:true}}},orderBy:{variantId:'asc'},take:101});
@@ -64,7 +66,7 @@ export function orderRoutes(gateway?:Gateway){
    const discount=await calculateDiscount(tx,subtotal,coupon,true);
    const total=subtotal+shipping-discount.discountPaise;if(total!==expectedTotalPaise||total<100||total>2000000000)throw new HttpError(409,'Price changed or total outside supported range.');
    const {recipient,line1,city,state,postalCode,country}=address;
-   const result=await tx.order.create({data:{userId,requestKey,addressSnapshot:{recipient,line1,city,state,postalCode,country},subtotalPaise:subtotal,shippingPaise:shipping,...discount,totalPaise:total,items:{create:items}},include:orderInclude});
+   const result=await tx.order.create({data:{userId,requestKey,paymentMethod,addressSnapshot:{recipient,line1,city,state,postalCode,country},subtotalPaise:subtotal,shippingPaise:shipping,...discount,totalPaise:total,items:{create:items}},include:orderInclude});
    for(const row of rows){const removed=await tx.cartItem.deleteMany({where:{id:row.id,userId,quantity:row.quantity,updatedAt:row.updatedAt}});if(!removed.count)throw new HttpError(409,'Bag changed. Try again.');}
    return result;
   },{timeout:15000});
@@ -73,16 +75,16 @@ export function orderRoutes(gateway?:Gateway){
  router.post('/:id/cancel',wrap(async(req,res)=>{
   const id=uuid.parse(req.params.id),userId:string=res.locals.user.id;
   await db.$transaction(async tx=>{
-   const changed=await tx.order.updateMany({where:{id,userId,status:'PENDING_PAYMENT',gatewayState:'NEW'},data:{status:'CANCELLED'}});if(!changed.count)throw new HttpError(409,'Only unstarted payment orders can be cancelled online.');
+   const changed=await tx.order.updateMany({where:{id,userId,status:'PENDING_PAYMENT',gatewayState:'NEW',fulfillment:'UNFULFILLED'},data:{status:'CANCELLED'}});if(!changed.count)throw new HttpError(409,'Only unfulfilled orders without started gateway payment can be cancelled.');
    const items=await tx.orderItem.findMany({where:{orderId:id},orderBy:{variantId:'asc'}});for(const i of items)await tx.productVariant.update({where:{id:i.variantId},data:{stock:{increment:i.quantity}}});
   });res.status(204).end();
  }));
  router.post('/:id/payment',wrap(async(req,res)=>{
   verified(res);if(!gateway)throw new HttpError(503,'Test payments are not configured.');
   const id=uuid.parse(req.params.id),userId:string=res.locals.user.id;
-  const o=await db.order.findFirst({where:{id,userId,status:'PENDING_PAYMENT'}});if(!o)throw new HttpError(404,'Pending order not found.');
+  const o=await db.order.findFirst({where:{id,userId,status:'PENDING_PAYMENT',paymentMethod:'ONLINE'}});if(!o)throw new HttpError(404,'Pending order not found.');
   if(o.gatewayState==='READY'&&o.providerOrderId){res.json({keyId:gateway.keyId,orderId:o.providerOrderId,amount:o.totalPaise,currency:'INR'});return;}
-  const claim=await db.order.updateMany({where:{id,userId,status:'PENDING_PAYMENT',gatewayState:'NEW'},data:{gatewayState:'CREATING'}});
+  const claim=await db.order.updateMany({where:{id,userId,status:'PENDING_PAYMENT',paymentMethod:'ONLINE',gatewayState:'NEW'},data:{gatewayState:'CREATING'}});
   if(!claim.count)throw new HttpError(409,'Payment setup already started. Check order status; support may need to reconcile it.');
   try{
    const provider=await gateway.createOrder(o.totalPaise,o.id);
@@ -95,7 +97,7 @@ export function orderRoutes(gateway?:Gateway){
   if(!gateway)throw new HttpError(503,'Payments unavailable.');
   const id=uuid.parse(req.params.id),userId:string=res.locals.user.id;
   const data=z.object({paymentId:z.string().regex(/^pay_[A-Za-z0-9]+$/),signature:z.string().regex(/^[a-f0-9]{64}$/i)}).strict().parse(req.body);
-  const o=await db.order.findFirst({where:{id,userId}});if(!o?.providerOrderId)throw new HttpError(404,'Payment order not found.');
+  const o=await db.order.findFirst({where:{id,userId}});if(!o?.providerOrderId||o.paymentMethod!=='ONLINE')throw new HttpError(404,'Payment order not found.');
   if(!gateway.verifyCheckout(o.providerOrderId,data.paymentId,data.signature))throw new HttpError(400,'Invalid payment signature.');
   const p=await gateway.fetchPayment(data.paymentId);
   if(p.id!==data.paymentId||p.order_id!==o.providerOrderId||p.amount!==o.totalPaise||p.currency!=='INR')throw new HttpError(409,'Payment details mismatch.');

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import request from 'supertest';
 import { randomUUID,createHmac } from 'node:crypto';
 import { db } from '../src/config/database.js';
+import { hashPassword } from '../src/utils/security.js';
 import { createApp } from '../src/app.js';
 import { signatureMatches,type Gateway,type GatewayPayment } from '../src/modules/payments/gateway.js';
 const origin='http://localhost:5173';
@@ -56,4 +57,41 @@ test('checkout reservation, idempotency, cancellation and captured payment',asyn
  assert.equal((await db.productVariant.findUniqueOrThrow({where:{id:v.id}})).stock,1);
  await post('/api/auth/logout',{}).expect(204);await post('/api/auth/login',{email,password}).expect(200);
  assert.equal((await a.get('/api/orders').expect(200)).body.items.length,2);
+ const codApp=createApp(origin),customer=request.agent(codApp),admin=request.agent(codApp);
+ const codPost=(path:string,body:unknown)=>customer.post(path).set('Origin',origin).send(body);
+ const adminEmail='cod-'+email;
+ const priorFlag=process.env.COD_TEST_ENABLED;
+ try{
+  await codPost('/api/auth/login',{email,password}).expect(200);
+  await customer.put('/api/cart/items').set('Origin',origin).send({variantId:v.id,quantity:1}).expect(200);
+  const codBody={addressId:address.id,requestKey:randomUUID(),expectedTotalPaise:100000,paymentMethod:'COD'};
+  process.env.COD_TEST_ENABLED='false';await codPost('/api/orders',codBody).expect(503);
+  process.env.COD_TEST_ENABLED='true';
+  assert.equal((await customer.get('/api/orders/configuration').expect(200)).body.codEnabled,true);
+  const co=(await codPost('/api/orders',codBody).expect(201)).body;
+  assert.equal(co.paymentMethod,'COD');assert.equal(co.status,'PENDING_PAYMENT');
+  assert.equal((await codPost('/api/orders',codBody).expect(201)).body.id,co.id);
+  assert.equal((await db.productVariant.findUniqueOrThrow({where:{id:v.id}})).stock,0);
+  await post('/api/orders/'+co.id+'/payment',{}).expect(404);
+  await codPost('/api/orders/'+co.id+'/cancel',{}).expect(204);
+  assert.equal((await db.productVariant.findUniqueOrThrow({where:{id:v.id}})).stock,1);
+  await customer.put('/api/cart/items').set('Origin',origin).send({variantId:v.id,quantity:1}).expect(200);
+  const delivery=(await codPost('/api/orders',{...codBody,requestKey:randomUUID()}).expect(201)).body;
+  await db.user.create({data:{email:adminEmail,name:'COD admin',mobile:'9999999999',role:'ADMIN',passwordHash:await hashPassword(password),termsAcceptedAt:new Date()}});
+  await admin.post('/api/auth/login').set('Origin',origin).send({email:adminEmail,password}).expect(200);
+  const advance=(body:unknown)=>admin.patch('/api/admin/orders/'+delivery.id+'/fulfillment').set('Origin',origin).send(body);
+  await customer.patch('/api/admin/orders/'+delivery.id+'/fulfillment').set('Origin',origin).send({status:'PACKING'}).expect(403);
+  await advance({status:'PACKING'}).expect(200);
+  await codPost('/api/orders/'+delivery.id+'/cancel',{}).expect(409);
+  await advance({status:'SHIPPED',carrier:'Test carrier',trackingNumber:'TEST123'}).expect(200);
+  await advance({status:'DELIVERED'}).expect(400);
+  await advance({status:'DELIVERED',cashCollected:true}).expect(200);
+  await advance({status:'DELIVERED',cashCollected:true}).expect(409);
+  const delivered=(await customer.get('/api/orders/'+delivery.id).expect(200)).body;
+  assert.equal(delivered.status,'PAID');assert.equal(delivered.fulfillment,'DELIVERED');assert.ok(delivered.paidAt);
+ }finally{
+  if(priorFlag===undefined)delete process.env.COD_TEST_ENABLED;else process.env.COD_TEST_ENABLED=priorFlag;
+  const adminUser=await db.user.findUnique({where:{email:adminEmail}});
+  if(adminUser){await db.adminEvent.deleteMany({where:{actorId:adminUser.id}});await db.user.delete({where:{id:adminUser.id}});}
+ }
 });

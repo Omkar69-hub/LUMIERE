@@ -152,6 +152,11 @@ model WishlistItem {
   @@index([productId])
 }
 
+enum PaymentMethod {
+  ONLINE
+  COD
+}
+
 enum OrderStatus {
   PENDING_PAYMENT
   PAID
@@ -173,6 +178,7 @@ model Order {
   discountPaise Int @default(0)
   couponCode String?
   totalPaise Int
+  paymentMethod PaymentMethod @default(ONLINE)
   status OrderStatus @default(PENDING_PAYMENT)
   gatewayState GatewayState @default(NEW)
   fulfillment FulfillmentStatus @default(UNFULFILLED)

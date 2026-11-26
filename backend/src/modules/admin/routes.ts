@@ -43,16 +43,27 @@ export function adminRoutes(gateway?:Gateway){
  }));
  router.get('/orders/:id',wrap(async(req,res)=>{const order=await db.order.findUnique({where:{id:uuid.parse(req.params.id)},include:orderInclude});if(!order)throw new HttpError(404,'Order not found.');res.json(order);}));
  router.patch('/orders/:id/fulfillment',wrap(async(req,res)=>{
-  const id=uuid.parse(req.params.id),v=z.object({status:z.enum(['PACKING','SHIPPED','DELIVERED']),carrier:text.optional(),trackingNumber:text.optional()}).strict().parse(req.body);
+  const id=uuid.parse(req.params.id),v=z.object({status:z.enum(['PACKING','SHIPPED','DELIVERED']),carrier:text.optional(),trackingNumber:text.optional(),cashCollected:z.literal(true).optional()}).strict().parse(req.body);
   if(v.status==='SHIPPED'&&(!v.carrier||!v.trackingNumber))throw new HttpError(400,'Carrier and tracking number are required.');
   if(v.status!=='SHIPPED'&&(v.carrier||v.trackingNumber))throw new HttpError(400,'Tracking details belong to shipment.');
   const prior={PACKING:'UNFULFILLED',SHIPPED:'PACKING',DELIVERED:'SHIPPED'} as const;
-  await db.$transaction(async tx=>{const updated=await tx.order.updateMany({where:{id,status:'PAID',fulfillment:prior[v.status]},data:{fulfillment:v.status,...(v.status==='SHIPPED'?{carrier:v.carrier,trackingNumber:v.trackingNumber}:{})}});if(!updated.count)throw new HttpError(409,'Only paid orders may advance one fulfillment step.');await audit(tx,res.locals.user.id,'FULFILLMENT_'+v.status,id);});
+  await db.$transaction(async tx=>{
+   await tx.$queryRaw `SELECT "id" FROM "Order" WHERE "id" = ${id} FOR UPDATE`;
+   const order=await tx.order.findUnique({where:{id}});
+   const cod=order?.paymentMethod==='COD';
+   if(!order||order.fulfillment!==prior[v.status]||!(cod?order.status==='PENDING_PAYMENT':order.status==='PAID'))throw new HttpError(409,'Order cannot advance this fulfillment step.');
+   if(cod&&(process.env.NODE_ENV==='production'||process.env.COD_TEST_ENABLED!=='true'))throw new HttpError(503,'Test COD is disabled.');
+   const collect=cod&&v.status==='DELIVERED';
+   if(collect!==!!v.cashCollected)throw new HttpError(400,'Confirm test cash collection only when delivering a COD order.');
+   await tx.order.update({where:{id},data:{fulfillment:v.status,...(v.status==='SHIPPED'?{carrier:v.carrier,trackingNumber:v.trackingNumber}:{}),...(collect?{status:'PAID',paidAt:new Date()}: {})}});
+   await audit(tx,res.locals.user.id,'FULFILLMENT_'+v.status,id);
+   if(collect)await audit(tx,res.locals.user.id,'COD_TEST_CASH_COLLECTED',id);
+  });
   res.json({message:'Fulfillment updated.'});
  }));
  router.post('/orders/:id/cancel',wrap(async(req,res)=>{
   const id=uuid.parse(req.params.id);
-  await db.$transaction(async tx=>{const changed=await tx.order.updateMany({where:{id,status:'PENDING_PAYMENT',gatewayState:'NEW'},data:{status:'CANCELLED'}});if(!changed.count)throw new HttpError(409,'Only orders without started gateway payment can be cancelled.');const items=await tx.orderItem.findMany({where:{orderId:id},orderBy:{variantId:'asc'}});for(const item of items)await tx.productVariant.update({where:{id:item.variantId},data:{stock:{increment:item.quantity}}});await audit(tx,res.locals.user.id,'ORDER_CANCEL',id);});res.status(204).end();
+  await db.$transaction(async tx=>{const changed=await tx.order.updateMany({where:{id,status:'PENDING_PAYMENT',gatewayState:'NEW',fulfillment:'UNFULFILLED'},data:{status:'CANCELLED'}});if(!changed.count)throw new HttpError(409,'Only orders without started gateway payment can be cancelled.');const items=await tx.orderItem.findMany({where:{orderId:id},orderBy:{variantId:'asc'}});for(const item of items)await tx.productVariant.update({where:{id:item.variantId},data:{stock:{increment:item.quantity}}});await audit(tx,res.locals.user.id,'ORDER_CANCEL',id);});res.status(204).end();
  }));
  router.post('/orders/:id/reconcile',wrap(async(req,res)=>{
   if(!gateway)throw new HttpError(503,'Test payment provider is not configured.');
