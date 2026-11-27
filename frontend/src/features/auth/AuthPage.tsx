@@ -4,6 +4,7 @@ import {useQueryClient} from '@tanstack/react-query';
 import {AuthLayout} from '../../components/AuthLayout';
 import {api,ApiError,type User} from '../../services/api';
 import {Field,PasswordFeedback} from './Fields';
+import {notifySessionChange} from './session-change';
 export function AuthPage({mode}:{mode:'login'|'register'}){
  const signup=mode==='register',navigate=useNavigate(),query=useQueryClient(),lock=useRef(false),alert=useRef<HTMLParagraphElement>(null);
  const [password,setPassword]=useState(''),[confirmation,setConfirmation]=useState(''),[email,setEmail]=useState(''),[emailTouched,setEmailTouched]=useState(false),[confirmTouched,setConfirmTouched]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[fields,setFields]=useState<Record<string,string>>({});
@@ -15,7 +16,7 @@ export function AuthPage({mode}:{mode:'login'|'register'}){
   if(signup&&password!==confirmation){setConfirmTouched(true);setError('Please confirm the same password.');return;}
   lock.current=true;setBusy(true);
   const f=new FormData(e.currentTarget),body=signup?{name:f.get('name'),email:f.get('email'),mobile:f.get('mobile'),password,confirmPassword:confirmation,terms:f.has('terms')}:{email:f.get('email'),password,remember:f.has('remember')};
-  try{const result=await api<{user:User}>('/auth/'+mode,'POST',body);query.clear();query.setQueryData(['session'],result);navigate('/account',{replace:true});}
+  try{const result=await api<{user:User}>('/auth/'+mode,'POST',body);await query.cancelQueries();query.clear();query.setQueryData(['session'],result);notifySessionChange();navigate(result.user.role==='ADMIN'?'/admin':'/account',{replace:true});}
   catch(err){setError(err instanceof Error?err.message:'Request failed.');if(err instanceof ApiError)setFields(Object.fromEntries(err.fields.map(x=>[x.field,x.message])));}
   finally{lock.current=false;setBusy(false);}
  }

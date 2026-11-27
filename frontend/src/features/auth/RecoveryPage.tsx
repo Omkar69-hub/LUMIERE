@@ -4,6 +4,7 @@ import {useQueryClient} from '@tanstack/react-query';
 import {AuthLayout} from '../../components/AuthLayout';
 import {api,ApiError} from '../../services/api';
 import {Field,PasswordFeedback} from './Fields';
+import {notifySessionChange} from './session-change';
 export function RecoveryPage({mode}:{mode:'forgot-password'|'reset-password'|'verify-email'}){
  const [token]=useState(()=>new URLSearchParams(location.hash.slice(1)).get('token')||''),lock=useRef(false),alert=useRef<HTMLParagraphElement>(null),query=useQueryClient();
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[password,setPassword]=useState(''),[confirmation,setConfirmation]=useState(''),[touched,setTouched]=useState(false),[fields,setFields]=useState<Record<string,string>>({});
@@ -13,7 +14,7 @@ export function RecoveryPage({mode}:{mode:'forgot-password'|'reset-password'|'ve
   if(mode==='reset-password'&&password!==confirmation){setTouched(true);setError('Please confirm the same password.');return;}
   lock.current=true;setBusy(true);
   const f=new FormData(e.currentTarget),body=mode==='forgot-password'?{email:f.get('email')}:mode==='reset-password'?{token,password,confirmPassword:confirmation}:{token};
-  try{const result=await api<{message:string}>('/auth/'+mode,'POST',body);setMessage(result.message);if(mode!=='forgot-password'){history.replaceState(history.state,'',location.pathname+location.search);if(mode==='reset-password')query.clear();else await query.invalidateQueries({queryKey:['session']});}}
+  try{const result=await api<{message:string}>('/auth/'+mode,'POST',body);setMessage(result.message);if(mode!=='forgot-password'){history.replaceState(history.state,'',location.pathname+location.search);if(mode==='reset-password'){await query.cancelQueries();query.clear();notifySessionChange();}else await query.invalidateQueries({queryKey:['session']});}}
   catch(err){setError(err instanceof Error?err.message:'Request failed.');if(err instanceof ApiError)setFields(Object.fromEntries(err.fields.map(x=>[x.field,x.message])));}
   finally{lock.current=false;setBusy(false);}
  }
