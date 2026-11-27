@@ -8,6 +8,10 @@ permissions:
   contents: read
 jobs:
   test:
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [desktop, mobile]
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -42,12 +46,13 @@ jobs:
         env:
           APP_ORIGIN: http://localhost:5173
           PORT: 3001
-        run: npm run test:browser
+        # Isolate rate-limit counters and test databases between browser projects.
+        run: npm run test:browser -- --project=${{ matrix.browser }}
       - name: Upload browser evidence (synthetic records only)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: browser-evidence
+          name: browser-evidence-${{ matrix.browser }}
           path: test-results/
           if-no-files-found: ignore
           retention-days: 7
