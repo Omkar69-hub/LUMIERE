@@ -4,7 +4,7 @@ import { db } from '../../config/database.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { wrap,HttpError } from '../../middleware/http.js';
 import {couponCode,calculateDiscount} from '../commerce/coupons.js';
-import { requireUser } from '../auth/session.js';
+import { requireUser,requireCustomer } from '../auth/session.js';
 import type { Gateway,GatewayPayment } from '../payments/gateway.js';
 import {queueOrderNotice,whatsappTestAvailable} from './notifications.js';
 const uuid=z.string().uuid();
@@ -29,7 +29,7 @@ export async function confirmPayment(payment:GatewayPayment,eventId?:string){
  });
 }
 export function orderRoutes(gateway?:Gateway){
- const router=Router();router.use(requireUser);
+ const router=Router();router.use(requireUser,requireCustomer);
  router.get('/configuration',(_req,res)=>res.json({paymentEnabled:!!gateway,codEnabled:codEnabled(),whatsappEnabled:whatsappTestAvailable(),testMode:true,shippingPaise:0,shippingTestEnabled:shippingTestEnabled(),freeShippingThresholdPaise:TEST_FREE_SHIPPING_PAISE}));
  router.get('/',wrap(async(req,res)=>{const {page}=z.object({page:z.coerce.number().int().min(1).max(1000).default(1)}).strict().parse(req.query);const rows=await db.order.findMany({where:{userId:res.locals.user.id},include:orderInclude,orderBy:[{createdAt:'desc'},{id:'asc'}],skip:(page-1)*20,take:21});res.json({items:rows.slice(0,20).map(publicOrder),hasMore:rows.length>20});}));
  router.post('/quote',wrap(async(req,res)=>{

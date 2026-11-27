@@ -2,7 +2,7 @@ import {Router} from 'express';
 import {z} from 'zod';
 import {db} from '../../config/database.js';
 import {wrap,HttpError} from '../../middleware/http.js';
-import {requireUser,requireAdmin} from '../auth/session.js';
+import {requireUser,requireAdmin,requireCustomer} from '../auth/session.js';
 import {couponCode} from './coupons.js';
 const uuid=z.string().uuid();
 const coupon=z.object({percent:z.number().int().min(1).max(90),minimumPaise:z.number().int().min(0).max(2000000000),active:z.boolean(),expiresAt:z.iso.datetime().nullable()}).strict();
@@ -22,7 +22,7 @@ adminCommerce.patch('/returns/:id',wrap(async(req,res)=>{
  const prior=v.status==='RECEIVED'?'APPROVED':'REQUESTED';
  await db.$transaction(async tx=>{const changed=await tx.returnRequest.updateMany({where:{id,status:prior},data:v});if(!changed.count)throw new HttpError(409,'Return status cannot make that transition.');await tx.adminEvent.create({data:{actorId:res.locals.user.id,action:'RETURN_'+v.status,targetId:id}});});res.json({message:'Return status updated. No refund or stock adjustment was made.'});
 }));
-export const customerReturns=Router();customerReturns.use(requireUser);
+export const customerReturns=Router();customerReturns.use(requireUser,requireCustomer);
 customerReturns.get('/:orderId',wrap(async(req,res)=>{
  const orderId=uuid.parse(req.params.orderId);
  const order=await db.order.findFirst({where:{id:orderId,userId:res.locals.user.id},select:{id:true,returnRequest:true,refund:{select:{status:true,amountPaise:true}}}});if(!order)throw new HttpError(404,'Order not found.');

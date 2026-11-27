@@ -2,12 +2,12 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '../../config/database.js';
 import { wrap,HttpError } from '../../middleware/http.js';
-import { requireUser } from '../auth/session.js';
+import { requireUser,requireCustomer } from '../auth/session.js';
 const uuid=z.string().uuid();
 const qty=z.number().int().min(1).max(20);
 const itemSchema=z.object({variantId:uuid,quantity:qty}).strict();
 const include={variant:{include:{product:{include:{images:{orderBy:{position:'asc' as const},take:1}}}}}};
-export const cart=Router();cart.use(requireUser);
+export const cart=Router();cart.use(requireUser,requireCustomer);
 cart.get('/',wrap(async(_req,res)=>{
  const rows=await db.cartItem.findMany({where:{userId:res.locals.user.id},include,orderBy:{createdAt:'asc'}});
  const items=rows.map(row=>{const v=row.variant,p=v.product;const available=p.published&&v.stock>=row.quantity;return {id:row.id,variantId:v.id,slug:p.slug,name:p.name,size:v.size,color:v.color,sku:v.sku,quantity:row.quantity,pricePaise:p.pricePaise,lineTotalPaise:p.pricePaise*row.quantity,available,published:p.published,maxQuantity:p.published?Math.min(20,v.stock):0,image:p.images[0]?{url:p.images[0].url,alt:p.images[0].alt}:null};});
@@ -36,7 +36,7 @@ cart.delete('/items/:id',wrap(async(req,res)=>{
  const id=uuid.parse(req.params.id),result=await db.cartItem.deleteMany({where:{id,userId:res.locals.user.id}});
  if(!result.count)throw new HttpError(404,'Cart item not found.');res.status(204).end();
 }));
-export const wishlist=Router();wishlist.use(requireUser);
+export const wishlist=Router();wishlist.use(requireUser,requireCustomer);
 wishlist.get('/',wrap(async(_req,res)=>{
  const rows=await db.wishlistItem.findMany({where:{userId:res.locals.user.id,product:{published:true}},include:{product:{include:{images:{orderBy:{position:'asc'},take:1}}}},orderBy:{createdAt:'desc'}});
  res.json(rows.map(({product:p})=>({id:p.id,slug:p.slug,name:p.name,pricePaise:p.pricePaise,image:p.images[0]?{url:p.images[0].url,alt:p.images[0].alt}:null})));

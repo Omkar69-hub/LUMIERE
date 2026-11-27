@@ -3,9 +3,9 @@ import {z} from 'zod';
 import rateLimit from 'express-rate-limit';
 import {db} from '../../config/database.js';
 import {wrap,HttpError} from '../../middleware/http.js';
-import {requireUser,requireAdmin} from '../auth/session.js';
+import {requireUser,requireAdmin,requireCustomer} from '../auth/session.js';
 const paging=z.object({page:z.coerce.number().int().min(1).max(10000).default(1)}).strict();
-export const support=Router();support.use(requireUser);
+export const support=Router();support.use(requireUser,requireCustomer);
 support.get('/',wrap(async(req,res)=>{const {page}=paging.parse(req.query);const rows=await db.supportTicket.findMany({where:{userId:res.locals.user.id},orderBy:[{createdAt:'desc'},{id:'asc'}],skip:(page-1)*20,take:21});res.json({items:rows.slice(0,20),hasMore:rows.length>20});}));
 support.post('/',rateLimit({windowMs:600000,limit:5,standardHeaders:'draft-7',legacyHeaders:false}),wrap(async(req,res)=>{
  const data=z.object({subject:z.string().trim().min(3).max(120),message:z.string().trim().min(10).max(2000)}).strict().parse(req.body);

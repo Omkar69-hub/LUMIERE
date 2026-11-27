@@ -23,3 +23,6 @@ export const requireUser=wrap(async(req,res,next)=>{
   const {suspendedAt:_,mfaSecret,...user}=session.user;res.locals.user=user;res.locals.mfaRequired=mfaRequired(!!mfaSecret);res.locals.mfaVerifiedAt=session.mfaVerifiedAt;next();
 });
 export const requireAdmin=wrap(async(_req,res,next)=>{if(res.locals.user?.role!=='ADMIN')throw new HttpError(403,'Access denied.');if(res.locals.mfaRequired&&(!res.locals.mfaVerifiedAt||Date.now()-new Date(res.locals.mfaVerifiedAt).getTime()>12*3600000))throw new HttpError(403,'Administrator MFA verification required.');next();});
+
+// Customer-only operations must never accept an administrative session.
+export const requireCustomer=wrap(async(_req,res,next)=>{if(res.locals.user?.role!=='CUSTOMER')throw new HttpError(403,'Use a customer account for shopping and personal orders.');next();});
