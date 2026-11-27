@@ -2,7 +2,7 @@ import {useState} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {Link,useParams} from 'react-router-dom';
 import {api,ApiError,type User} from '../services/api';
-import {getOrders,getOrder,getConfig,type PaymentSetup} from '../features/orders/api';
+import {getOrders,getOrder,getConfig,deliveryRange,type PaymentSetup} from '../features/orders/api';
 import {loadRazorpay} from '../features/orders/razorpay';
 import {formatPrice} from '../features/catalog/api';
 import {ReturnPanel} from '../features/orders/ReturnPanel';
@@ -44,7 +44,7 @@ export function OrderDetail(){
  <div className="order-shipment"><div className="order-shipment-title"><svg aria-hidden="true" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="m3 7 9-4 9 4v10l-9 4-9-4V7Z M3 7l9 4 9-4 M12 11v10"/>{orderStage(o)===4&&<path d="m15 15 2 2 3-4"/>}</svg><strong>{o.status==='CANCELLED'?'Order cancelled':orderStage(o)===4?'Successfully delivered':orderStage(o)===3?'Out for delivery':orderStage(o)===2?'Your order is on its way':orderStage(o)===1?'Preparing your order':orderStage(o)===0?'Order confirmed':'Awaiting payment'}</strong></div>
  {o.status!=='CANCELLED'&&o.trackingNumber&&<><p>Courier: {o.carrier||'Not specified'}</p><div className="order-tracking-copy"><span>{o.trackingNumber}</span><button type="button" className="order-copy-button" onClick={()=>void copyTracking()}>Copy</button></div><p role="status" className="hint">{copyMessage}</p></>}
  {o.status!=='CANCELLED'&&!o.trackingNumber&&<p>Tracking details will appear after dispatch.</p>}
- <p className="hint">Shipment status is updated by our team; live courier tracking is not connected.</p></div>
+ {o.address.shippingEstimate&&o.status!=='CANCELLED'&&o.fulfillment!=='DELIVERED'&&<p><strong>Original estimated test delivery:</strong> {deliveryRange(o.address.shippingEstimate)}</p>}<p className="hint">Shipment status is updated by our team; live courier tracking is not connected.</p></div>
  </section>
  {error&&<p role="alert" className="error">{error}</p>}{message&&<p role="status">{message}</p>}
  {o.status==='PENDING_PAYMENT'&&<div className="purchase-controls">{o.paymentMethod==='ONLINE'&&(o.gatewayState==='NEW'||o.gatewayState==='READY')&&<button className="primary" disabled={busy||!config.data?.paymentEnabled} onClick={()=>void pay()}>Open Razorpay test checkout</button>}{o.gatewayState==='NEW'&&o.fulfillment==='UNFULFILLED'&&<button disabled={busy} onClick={()=>void cancel()}>{o.paymentMethod==='COD'?'Cancel order':'Cancel unpaid order'}</button>}{(o.gatewayState==='CREATING'||o.gatewayState==='REVIEW')&&<p role="alert">Payment setup requires reconciliation. Do not create another order.</p>}</div>}

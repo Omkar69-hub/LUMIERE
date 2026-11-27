@@ -1,0 +1,5 @@
+# Local simulated shipping
+Enable `SHIPPING_TEST_ENABLED=true` in backend/.env, restart the server. Disabled by default and in production.
+Provisional rates only: Indian PIN prefixes 41–44: ₹49, 2–4 calendar days; other six-digit PINs beginning 1–8: ₹79, 4–7 calendar days. Merchandise subtotal at least ₹2,999 before coupon discount: free test shipping. No actual PIN database, warehouse, carrier, serviceability, tax or dispatch commitment. Dates use the India-local order creation date. Estimates are recorded in the existing order address snapshot; historical orders remain unchanged.
+Checkout quote and order creation compute fees on the server from the customer's saved address and current cart. A stale expected total is rejected transactionally. The test estimate is shown on order detail and admin order detail. Existing manual fulfillment remains unchanged.
+Before release replace simulated pricing with approved commercial policy and actual courier serviceability. No carrier API, labels, pickup, tax invoices or tracking webhooks are implemented by this change. Keep WhatsApp disabled pending Meta verification.

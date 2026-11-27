@@ -60,7 +60,7 @@ test('checkout reservation, idempotency, cancellation and captured payment',asyn
  const codApp=createApp(origin),customer=request.agent(codApp),admin=request.agent(codApp);
  const codPost=(path:string,body:unknown)=>customer.post(path).set('Origin',origin).send(body);
  const adminEmail='cod-'+email;
- const priorFlag=process.env.COD_TEST_ENABLED;
+ const priorFlag=process.env.COD_TEST_ENABLED,priorShipping=process.env.SHIPPING_TEST_ENABLED;
  try{
   await codPost('/api/auth/login',{email,password}).expect(200);
   await customer.put('/api/cart/items').set('Origin',origin).send({variantId:v.id,quantity:1}).expect(200);
@@ -68,12 +68,22 @@ test('checkout reservation, idempotency, cancellation and captured payment',asyn
   process.env.COD_TEST_ENABLED='false';await codPost('/api/orders',codBody).expect(503);
   process.env.COD_TEST_ENABLED='true';
   assert.equal((await customer.get('/api/orders/configuration').expect(200)).body.codEnabled,true);
-  const co=(await codPost('/api/orders',codBody).expect(201)).body;
+  process.env.SHIPPING_TEST_ENABLED='true';
+  await codPost('/api/orders/quote',{}).expect(400);
+  await codPost('/api/orders/quote',{addressId:randomUUID()}).expect(404);
+  const shippingQuote=(await codPost('/api/orders/quote',{addressId:address.id}).expect(200)).body;
+  assert.equal(shippingQuote.shippingPaise,4900);assert.equal(shippingQuote.totalPaise,104900);
+  await codPost('/api/orders',codBody).expect(409);
+  assert.equal((await db.productVariant.findUniqueOrThrow({where:{id:v.id}})).stock,1);
+  const pricedBody={...codBody,expectedTotalPaise:shippingQuote.totalPaise};
+  const co=(await codPost('/api/orders',pricedBody).expect(201)).body;
+  assert.equal(co.shippingPaise,4900);assert.equal(co.address.shippingEstimate.zone,'A');
   assert.equal(co.paymentMethod,'COD');assert.equal(co.status,'PENDING_PAYMENT');
-  assert.equal((await codPost('/api/orders',codBody).expect(201)).body.id,co.id);
+  assert.equal((await codPost('/api/orders',pricedBody).expect(201)).body.id,co.id);
   assert.equal((await db.productVariant.findUniqueOrThrow({where:{id:v.id}})).stock,0);
   await post('/api/orders/'+co.id+'/payment',{}).expect(404);
   await codPost('/api/orders/'+co.id+'/cancel',{}).expect(204);
+  process.env.SHIPPING_TEST_ENABLED='false';
   assert.equal((await db.productVariant.findUniqueOrThrow({where:{id:v.id}})).stock,1);
   await customer.put('/api/cart/items').set('Origin',origin).send({variantId:v.id,quantity:1}).expect(200);
   const delivery=(await codPost('/api/orders',{...codBody,requestKey:randomUUID()}).expect(201)).body;
@@ -95,6 +105,7 @@ test('checkout reservation, idempotency, cancellation and captured payment',asyn
   assert.equal(await db.orderNotification.count({where:{orderId:next.id,event:'CONFIRMED'}}),1);
  }finally{
   if(priorFlag===undefined)delete process.env.COD_TEST_ENABLED;else process.env.COD_TEST_ENABLED=priorFlag;
+  if(priorShipping===undefined)delete process.env.SHIPPING_TEST_ENABLED;else process.env.SHIPPING_TEST_ENABLED=priorShipping;
   const adminUser=await db.user.findUnique({where:{email:adminEmail}});
   if(adminUser){await db.adminEvent.deleteMany({where:{actorId:adminUser.id}});await db.user.delete({where:{id:adminUser.id}});}
  }

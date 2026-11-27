@@ -12,7 +12,7 @@ const orderInclude={items:true} as const;
 const publicOrder=(o:Prisma.OrderGetPayload<{include:typeof orderInclude}>)=>({id:o.id,whatsappOptedIn:!!o.whatsappNumber,paymentMethod:o.paymentMethod,status:o.status,gatewayState:o.gatewayState,fulfillment:o.fulfillment,trackingNumber:o.trackingNumber,carrier:o.carrier,subtotalPaise:o.subtotalPaise,shippingPaise:o.shippingPaise,discountPaise:o.discountPaise,couponCode:o.couponCode,totalPaise:o.totalPaise,address:o.addressSnapshot,items:o.items,createdAt:o.createdAt,paidAt:o.paidAt});
 const verified=(res:{locals:Record<string,any>})=>{if(!res.locals.user.emailVerifiedAt)throw new HttpError(403,'Verify your email before checkout.');};
 const codEnabled=()=>process.env.NODE_ENV!=='production'&&process.env.COD_TEST_ENABLED==='true';
-const shipping=0; // Explicit development/test policy only; change before release.
+import {shippingTestEnabled,testShipping,TEST_FREE_SHIPPING_PAISE} from './shipping.js';
 export async function confirmPayment(payment:GatewayPayment,eventId?:string){
  if(payment.status!=='captured')return false;
  return db.$transaction(async tx=>{
@@ -30,15 +30,19 @@ export async function confirmPayment(payment:GatewayPayment,eventId?:string){
 }
 export function orderRoutes(gateway?:Gateway){
  const router=Router();router.use(requireUser);
- router.get('/configuration',(_req,res)=>res.json({paymentEnabled:!!gateway,codEnabled:codEnabled(),whatsappEnabled:whatsappTestAvailable(),testMode:true,shippingPaise:shipping}));
+ router.get('/configuration',(_req,res)=>res.json({paymentEnabled:!!gateway,codEnabled:codEnabled(),whatsappEnabled:whatsappTestAvailable(),testMode:true,shippingPaise:0,shippingTestEnabled:shippingTestEnabled(),freeShippingThresholdPaise:TEST_FREE_SHIPPING_PAISE}));
  router.get('/',wrap(async(req,res)=>{const {page}=z.object({page:z.coerce.number().int().min(1).max(1000).default(1)}).strict().parse(req.query);const rows=await db.order.findMany({where:{userId:res.locals.user.id},include:orderInclude,orderBy:[{createdAt:'desc'},{id:'asc'}],skip:(page-1)*20,take:21});res.json({items:rows.slice(0,20).map(publicOrder),hasMore:rows.length>20});}));
  router.post('/quote',wrap(async(req,res)=>{
-  const {coupon}=z.object({coupon:couponCode.optional()}).strict().parse(req.body);
+  const {coupon,addressId}=z.object({coupon:couponCode.optional(),addressId:uuid.optional()}).strict().parse(req.body);
   const quote=await db.$transaction(async tx=>{
    const rows=await tx.cartItem.findMany({where:{userId:res.locals.user.id},include:{variant:{include:{product:true}}},take:101});
    if(!rows.length||rows.length>100||rows.some(r=>!r.variant.product.published||r.variant.stock<r.quantity))throw new HttpError(409,'Review your bag inventory.');
    const subtotalPaise=rows.reduce((n,r)=>n+r.quantity*r.variant.product.pricePaise,0);
-   const discount=await calculateDiscount(tx,subtotalPaise,coupon);return {subtotalPaise,shippingPaise:shipping,...discount,totalPaise:subtotalPaise+shipping-discount.discountPaise};
+   const address=addressId?await tx.address.findFirst({where:{id:addressId,userId:res.locals.user.id}}):null;
+   if(addressId&&!address)throw new HttpError(404,'Address not found.');
+   if(shippingTestEnabled()&&!address)throw new HttpError(400,'Select a delivery address.');
+   const delivery=shippingTestEnabled()&&address?testShipping(address.postalCode,address.country,subtotalPaise):{shippingPaise:0,estimate:null};
+   const discount=await calculateDiscount(tx,subtotalPaise,coupon);return {addressId:addressId??null,subtotalPaise,shippingPaise:delivery.shippingPaise,estimate:delivery.estimate,...discount,totalPaise:subtotalPaise+delivery.shippingPaise-discount.discountPaise};
   });res.json(quote);
  }));
  router.get('/:id',wrap(async(req,res)=>{const o=await db.order.findFirst({where:{id:uuid.parse(req.params.id),userId:res.locals.user.id},include:{items:{include:{variant:{select:{product:{select:{images:{orderBy:{position:'asc'},take:1,select:{url:true}}}}}}}}}});if(!o)throw new HttpError(404,'Order not found.');res.json({...publicOrder(o),items:o.items.map(({variant,...item})=>({...item,imageUrl:variant.product.images[0]?.url??null}))});}));
@@ -66,9 +70,10 @@ export function orderRoutes(gateway?:Gateway){
     subtotal+=p.pricePaise*row.quantity;items.push({variantId:v.id,name:p.name,sku:v.sku,size:v.size,color:v.color,quantity:row.quantity,unitPricePaise:p.pricePaise});
    }
    const discount=await calculateDiscount(tx,subtotal,coupon,true);
-   const total=subtotal+shipping-discount.discountPaise;if(total!==expectedTotalPaise||total<100||total>2000000000)throw new HttpError(409,'Price changed or total outside supported range.');
+   const delivery=shippingTestEnabled()?testShipping(address.postalCode,address.country,subtotal):{shippingPaise:0,estimate:null};
+   const total=subtotal+delivery.shippingPaise-discount.discountPaise;if(total!==expectedTotalPaise||total<100||total>2000000000)throw new HttpError(409,'Price changed or total outside supported range.');
    const {recipient,line1,city,state,postalCode,country}=address;
-   const result=await tx.order.create({data:{userId,requestKey,paymentMethod,whatsappNumber,addressSnapshot:{recipient,line1,city,state,postalCode,country},subtotalPaise:subtotal,shippingPaise:shipping,...discount,totalPaise:total,items:{create:items}},include:orderInclude});
+   const result=await tx.order.create({data:{userId,requestKey,paymentMethod,whatsappNumber,addressSnapshot:{recipient,line1,city,state,postalCode,country,...(delivery.estimate?{shippingEstimate:delivery.estimate}:{})},subtotalPaise:subtotal,shippingPaise:delivery.shippingPaise,...discount,totalPaise:total,items:{create:items}},include:orderInclude});
    if(paymentMethod==='COD')await queueOrderNotice(tx,result.id,'CONFIRMED');
    for(const row of rows){const removed=await tx.cartItem.deleteMany({where:{id:row.id,userId,quantity:row.quantity,updatedAt:row.updatedAt}});if(!removed.count)throw new HttpError(409,'Bag changed. Try again.');}
    return result;
