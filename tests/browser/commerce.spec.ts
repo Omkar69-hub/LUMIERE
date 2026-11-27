@@ -21,7 +21,8 @@ test('administrator publishes a product; customer saves, shops and contacts supp
   if(isMobile)await page.getByRole('button',{name:'Sections',exact:true}).click();
   await page.getByRole('button',{name:'Products',exact:true}).click();await page.getByRole('button',{name:'Add product',exact:true}).click();
   await page.getByLabel('Product name').fill(name);await page.getByLabel('Slug',{exact:true}).fill(tag);await page.getByLabel('Price (₹)').fill('1500');
-  await page.getByLabel('Category',{exact:true}).selectOption({label:'QA category '+tag});await page.getByLabel('Brand',{exact:true}).selectOption({label:'QA brand '+tag});
+  const draft=page.locator('form').filter({has:page.getByRole('button',{name:'Create draft',exact:true})});
+  await draft.locator('select[name=categoryId]').selectOption({label:'QA category '+tag});await draft.locator('select[name=brandId]').selectOption({label:'QA brand '+tag});
   await page.getByLabel('Description',{exact:true}).fill('Synthetic browser QA fixture.');
   await page.getByLabel('Image URL (optional for draft)').fill('https://example.invalid/qa.jpg');await page.getByLabel('Image alt text').fill('Synthetic textile sample');
   await page.getByLabel('SKU',{exact:true}).fill(tag);await page.getByLabel('Size',{exact:true}).fill('M');await page.getByLabel('Colour',{exact:true}).fill('Ivory');await page.getByLabel('Available stock').fill('3');
@@ -43,4 +44,17 @@ test('administrator publishes a product; customer saves, shops and contacts supp
   await b.goto(origin+'/login');await b.getByLabel('Email address').fill(email);await b.getByLabel('Password',{exact:true}).fill(password);await b.getByRole('button',{name:'Sign in',exact:true}).click();await expect(b).toHaveURL(/\/admin$/);await b.goto(origin+'/account');await expect(b).toHaveURL(/\/admin$/);
   await b.goto(origin+'/login');await b.getByLabel('Email address').fill(customer);await b.getByLabel('Password',{exact:true}).fill(password);await b.getByRole('button',{name:'Sign in',exact:true}).click();await expect(b).toHaveURL(/\/account$/);await expect(b.getByRole('heading',{name:'My Account',exact:true})).toBeVisible();await expect(b.getByRole('link',{name:'Admin console',exact:true})).toHaveCount(0);
  }finally{await buyer.close();fixture('delete',tag);}
+});
+
+// Keep role switching independent of the longer catalogue workflow.
+test('role-specific login and customer route isolation',async({page})=>{
+ const tag=randomUUID(),admin=tag+'-admin@example.invalid',customer=tag+'-customer@example.invalid';
+ try{
+  fixture('create',tag);
+  const signIn=async(email:string)=>{await page.goto('/login');await page.getByLabel('Email address').fill(email);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();};
+  await signIn(admin);await expect(page).toHaveURL(/\/admin$/);
+  for(const path of ['/account','/orders','/cart','/wishlist','/checkout','/support']){await page.goto(path);await expect(page).toHaveURL(/\/admin$/);await expect(page.getByRole('heading',{name:'My Account',exact:true})).toHaveCount(0);}
+  await signIn(customer);await expect(page).toHaveURL(/\/account$/);await expect(page.getByRole('heading',{name:'My Account',exact:true})).toBeVisible();await expect(page.getByRole('link',{name:'Admin console',exact:true})).toHaveCount(0);
+  await page.goto('/admin');await expect(page.getByRole('heading',{name:'Access denied'})).toBeVisible();
+ }finally{fixture('delete',tag);}
 });
