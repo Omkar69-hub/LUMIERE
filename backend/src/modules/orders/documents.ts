@@ -116,7 +116,7 @@ function drawSummary(doc:InstanceType<typeof PDFDocument>,o:DocumentOrder,addres
  const bx=m+222,bw=right-bx,priceW=106,labelW=bw-priceW-10;
  const bh=breakdown.reduce((n,[k,v])=>n+Math.max(18,height(k,labelW,11)+4,height(v,priceW,11)+4),0);
  const refundText=o.refund?.status==='PROCESSED'?'Processed test refund: '+amount(o.refund.amountPaise):'';
- const payHeight=bh+64+(refundText?height(refundText,bw,10)+6:0);
+ const payHeight=bh+74+(refundText?height(refundText,bw,10)+6:0);
  ensure(Math.max(payHeight,112));
  caps('AT YOUR SERVICE',m,y,200);
  block('Thank you for choosing',m,y+19,200,18,'Times-Italic');
@@ -138,7 +138,7 @@ function drawSummary(doc:InstanceType<typeof PDFDocument>,o:DocumentOrder,addres
  // Fixed footer for every page. No fictional contact or payment information.
  const range=doc.bufferedPageRange();
  for(let n=0;n<range.count;n++){
-  doc.switchToPage(range.start+n);const fy=doc.page.height-83;
+  doc.switchToPage(range.start+n);const fy=doc.page.height-100;
   rule(fy);caps('A NOTE FROM LUMIÈRE',m,fy+8,w,'center');
   block('Development / test only. No actual payment or shipment.',m,fy+22,w,10,'Times-Italic',dark,'center');
   block('Not a tax invoice or proof of real payment.',m,fy+36,w,9,'Times-Roman',muted,'center');
