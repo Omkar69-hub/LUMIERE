@@ -114,7 +114,10 @@ function drawSummary(doc:InstanceType<typeof PDFDocument>,o:DocumentOrder,addres
  y+=18;
  const breakdown=[['Merchandise subtotal',amount(o.subtotalPaise)],['Test shipping',o.shippingPaise===0?'Free / INR 0.00':amount(o.shippingPaise)],['Discount'+(o.couponCode?' ('+safe(o.couponCode)+')':''),o.discountPaise>0?'-'+amount(o.discountPaise):amount(0)]];
  const bx=m+222,bw=right-bx,priceW=106,labelW=bw-priceW-10;
- const bh=breakdown.reduce((n,[k,v])=>n+Math.max(18,height(k,labelW,11)+4,height(v,priceW,11)+4),0);
+ // Reserve equal padding above and below the measured text in every payment row.
+ const rowPadding=5;
+ const paymentRowHeight=(k:string,v:string)=>Math.max(height(k,labelW,11),height(v,priceW,11))+2*rowPadding;
+ const bh=breakdown.reduce((n,[k,v])=>n+paymentRowHeight(k,v),0);
  const refundText=o.refund?.status==='PROCESSED'?'Processed test refund: '+amount(o.refund.amountPaise):'';
  const payHeight=bh+74+(refundText?height(refundText,bw,10)+6:0);
  ensure(Math.max(payHeight,112));
@@ -125,7 +128,13 @@ function drawSummary(doc:InstanceType<typeof PDFDocument>,o:DocumentOrder,addres
  doc.strokeColor(border).lineWidth(.7).moveTo(bx-14,y).lineTo(bx-14,y+Math.max(payHeight,112)).stroke();
  caps('PAYMENT BREAKDOWN',bx,y,bw);
  let yy=y+18;
- for(const [k,v] of breakdown){const rh=Math.max(18,height(k,labelW,11)+4,height(v,priceW,11)+4);block(k,bx,yy,labelW,11);block(v,right-priceW,yy,priceW,11,'Times-Roman',dark,'right');yy+=rh;rule(yy-1,bx,right);}
+ for(const [k,v] of breakdown){
+  const rh=paymentRowHeight(k,v);
+  block(k,bx,yy+rowPadding,labelW,11);
+  block(v,right-priceW,yy+rowPadding,priceW,11,'Times-Roman',dark,'right');
+  yy+=rh;
+  rule(yy,bx,right);
+ }
  yy+=6;
  const gradient=doc.linearGradient(bx,yy,right,yy+42).stop(0,'#956414').stop(1,'#69400B');
  doc.roundedRect(bx,yy,bw,42,4).fill(gradient);
