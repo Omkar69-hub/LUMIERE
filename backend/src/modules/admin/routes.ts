@@ -50,11 +50,15 @@ export function adminRoutes(gateway?:Gateway){
   if(from&&to&&from>to)throw new HttpError(400,'Start date must be before or equal to end date.');
   const eligible:Prisma.OrderWhereInput={OR:[{status:'PAID'},{status:'PENDING_PAYMENT',paymentMethod:'COD',fulfillment:{not:'DELIVERED'}}]};
   const where:Prisma.OrderWhereInput={AND:[eligible,...(stage?[{fulfillment:stage}]:[]),...(carrier?[{carrier:{contains:carrier,mode:'insensitive' as const}}]:[]),...(q?[{OR:[{id:{contains:q,mode:'insensitive' as const}},{trackingNumber:{contains:q,mode:'insensitive' as const}},{user:{name:{contains:q,mode:'insensitive' as const}}}]}]:[]),...(from||to?[{createdAt:{...(from?{gte:new Date(from+'T00:00:00+05:30')}:{}),...(to?{lt:new Date(new Date(to+'T00:00:00+05:30').getTime()+86400000)}:{})}}]:[])]};
-  const [rows,groups]=await db.$transaction([
+  const [rows,awaiting,packing,shipped,outForDelivery,delivered]=await db.$transaction([
    db.order.findMany({where,orderBy:[{createdAt:'desc'},{id:'asc'}],skip:(page-1)*25,take:26,select:{id:true,createdAt:true,fulfillment:true,status:true,paymentMethod:true,carrier:true,trackingNumber:true,totalPaise:true,user:{select:{name:true}},items:{select:{quantity:true}}}}),
-   db.order.groupBy({by:['fulfillment'],where:eligible,_count:{_all:true}})
+   db.order.count({where:{AND:[eligible,{fulfillment:'UNFULFILLED'}]}}),
+   db.order.count({where:{AND:[eligible,{fulfillment:'PACKING'}]}}),
+   db.order.count({where:{AND:[eligible,{fulfillment:'SHIPPED'}]}}),
+   db.order.count({where:{AND:[eligible,{fulfillment:'OUT_FOR_DELIVERY'}]}}),
+   db.order.count({where:{AND:[eligible,{fulfillment:'DELIVERED'}]}})
   ],{isolationLevel:Prisma.TransactionIsolationLevel.RepeatableRead});
-  res.json({items:rows.slice(0,25).map(({items,...row})=>({...row,units:items.reduce((sum,item)=>sum+item.quantity,0)})),hasMore:rows.length>25,counts:Object.fromEntries(stages.map(s=>[s,groups.find(g=>g.fulfillment===s)?._count._all??0]))});
+  res.json({items:rows.slice(0,25).map(({items,...row})=>({...row,units:items.reduce((sum,item)=>sum+item.quantity,0)})),hasMore:rows.length>25,counts:{UNFULFILLED:awaiting,PACKING:packing,SHIPPED:shipped,OUT_FOR_DELIVERY:outForDelivery,DELIVERED:delivered}});
  }));
  router.get('/shipments/:id/history',wrap(async(req,res)=>{
   const id=uuid.parse(req.params.id);
