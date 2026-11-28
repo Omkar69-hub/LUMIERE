@@ -23,101 +23,128 @@ function snapshot(value:unknown):Record<string,unknown>{return value&&typeof val
 export function canPrepareShipment(o:Pick<DocumentOrder,'status'|'paymentMethod'|'fulfillment'>){
  return (o.status==='PAID'||(o.status==='PENDING_PAYMENT'&&o.paymentMethod==='COD'))&&['UNFULFILLED','PACKING','SHIPPED','OUT_FOR_DELIVERY'].includes(o.fulfillment);
 }
-// A4 editorial order summary. Measured rows preserve long item names and addresses.
+// Heritage Edition: a vector A4 layout, not a raster mockup.
 function drawSummary(doc:InstanceType<typeof PDFDocument>,o:DocumentOrder,address:Record<string,unknown>){
- const m=44,w=doc.page.width-2*m,right=m+w,limit=doc.page.height-70;
- const cream='#F6F2EB',border='#DED6C9',bronze='#9A8265';
- const block=(s:string,x:number,y:number,width:number,size=10,font='Helvetica',color=ink,align:'left'|'right'|'center'='left')=>{
+ const m=45,w=doc.page.width-2*m,right=m+w,center=doc.page.width/2,limit=doc.page.height-100;
+ const ivory='#F8F3E9',cream='#F1E8D8',border='#AE8950',bronze='#80520D',dark='#181612';
+ const block=(s:string,x:number,y:number,width:number,size=10,font='Times-Roman',color=dark,align:'left'|'right'|'center'='left')=>{
   doc.font(font).fontSize(size).fillColor(color).text(s,x,y,{width,align,lineGap:2});
  };
- const height=(s:string,width:number,size=10,font='Helvetica')=>{doc.font(font).fontSize(size);return doc.heightOfString(s,{width,lineGap:2});};
- const rule=(y:number)=>{doc.strokeColor(border).lineWidth(.7).moveTo(m,y).lineTo(right,y).stroke();};
- const caps=(s:string,x:number,y:number,width:number)=>block(s,x,y,width,9,'Helvetica-Bold',gold);
+ const height=(s:string,width:number,size=10,font='Times-Roman')=>{doc.font(font).fontSize(size);return doc.heightOfString(s,{width,lineGap:2});};
+ const rule=(y:number,x=m,x2=right)=>{doc.strokeColor(border).lineWidth(.65).moveTo(x,y).lineTo(x2,y).stroke();};
+ const caps=(s:string,x:number,y:number,width:number,align:'left'|'center'='left')=>block(s,x,y,width,10,'Times-Bold',bronze,align);
  let y=0;
  const masthead=(continuation=false)=>{
-  doc.rect(0,0,doc.page.width,7).fill(ink);
-  block('L U M I È R E',m,34,w,25,'Times-Roman');
-  block('THE PRIVATE ATELIER',m,65,w,8,'Helvetica',gold);
-  block('DEVELOPMENT / TEST ONLY',m,38,w,8,'Helvetica-Bold',gold,'right');
-  rule(83);
-  block(continuation?'Order summary / continued':'Order summary',m,101,w,29,'Times-Roman');
-  block('ORDER #'+o.id.slice(0,8).toUpperCase(),m,140,w,10,'Helvetica-Bold',gold);
-  block('Placed '+date(o.createdAt),m,140,w,10,'Helvetica',muted,'right');
-  block('Reference: '+o.id,m,156,w,8,'Helvetica',muted);
-  y=180;
+  const pw=doc.page.width,ph=doc.page.height;
+  doc.rect(0,0,pw,ph).fill(ivory);
+  doc.rect(14,14,pw-28,ph-28).lineWidth(1.4).stroke(bronze);
+  doc.rect(19,19,pw-38,ph-38).lineWidth(.5).stroke(border);
+  caps('H E R I T A G E   E D I T I O N',m,34,w,'center');
+  rule(40,m+50,m+121);rule(40,right-121,right-50);
+  if(!continuation){
+   doc.circle(center,92,34).lineWidth(1.2).stroke(bronze);
+   doc.circle(center,92,29.5).lineWidth(.6).stroke(bronze);
+   block('L',center-30,67,60,45,'Times-Roman',bronze,'center');
+   block('L U M I È R E',m,132,w,30,'Times-Roman',dark,'center');
+   caps('T H E   P R I V A T E   A T E L I E R',m,169,w,'center');
+   rule(192);
+   block('Order Summary',m,204,w,38,'Times-Roman',dark,'center');
+   caps('ORDER #'+o.id.slice(0,8).toUpperCase()+'   /   PLACED ON '+date(o.createdAt).toUpperCase(),m,249,w,'center');
+   block('Reference: '+o.id,m,265,w,8,'Helvetica',muted,'center');
+   y=285;
+  }else{
+   block('L U M I È R E',m,55,w,22,'Times-Roman',dark,'center');
+   rule(85);
+   block('Order Summary / continued',m,96,w,24,'Times-Roman',dark,'center');
+   block('Order '+o.id,m,125,w,9,'Helvetica',muted,'center');
+   y=150;
+  }
  };
  const page=()=>{doc.addPage();masthead(true);};
  const ensure=(h:number)=>{if(y+h>limit)page();if(y+h>limit)throw new HttpError(422,'Order details exceed the printable page size.');};
- const payment=o.status==='CANCELLED'?'Cancelled - do not collect':o.status==='PAID'?'Paid (test)':o.paymentMethod==='COD'?'Payable on delivery (test)':'Awaiting payment';
+ const payment=o.status==='CANCELLED'?'Cancelled - do not collect':o.status==='PAID'?'Payment received (test)':o.paymentMethod==='COD'?'Payable on delivery (test)':'Awaiting payment';
  const status=o.status==='CANCELLED'?'Cancelled':o.fulfillment==='UNFULFILLED'?(o.status==='PAID'||o.paymentMethod==='COD'?'Confirmed':'Awaiting payment'):({PACKING:'Preparing your order',SHIPPED:'Shipped',OUT_FOR_DELIVERY:'Out for delivery',DELIVERED:'Delivered'} as Record<string,string>)[o.fulfillment]??o.fulfillment;
  const shortDate=(v:unknown)=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v+'T00:00:00Z'))?date(new Date(v+'T00:00:00Z')):safe(v);
  const addressLines=[safe(address.recipient),safe(address.line1),[safe(address.city),safe(address.state),safe(address.postalCode)].filter(Boolean).join(', '),safe(address.country)].filter(Boolean);
- const details=[status,'Payment: '+payment,'Method: '+(o.paymentMethod==='COD'?'Cash on Delivery':'Online (test)')];
+ const details=[status,payment,'Method: '+(o.paymentMethod==='COD'?'Cash on Delivery':'Online (test)')];
  const estimate=snapshot(address.shippingEstimate);
  if(typeof estimate.earliestDate==='string'&&typeof estimate.latestDate==='string')details.push('Original test delivery: '+shortDate(estimate.earliestDate)+' - '+shortDate(estimate.latestDate));
- if(o.carrier||o.trackingNumber){details.push('Carrier: '+(safe(o.carrier)||'Not assigned'),'Tracking: '+(safe(o.trackingNumber)||'Not assigned'));}
+ if(o.carrier||o.trackingNumber)details.push('Carrier: '+(safe(o.carrier)||'Not assigned'),'Tracking: '+(safe(o.trackingNumber)||'Not assigned'));
  if(o.refund)details.push('Refund: '+o.refund.status+' (test) - '+amount(o.refund.amountPaise));
  masthead();
- const gap=12,cw=(w-gap)/2,inner=cw-28;
- const measure=(ls:string[])=>ls.reduce((n,v,i)=>n+height(v,inner,i===0?13:10,i===0?'Helvetica-Bold':'Helvetica')+4,0);
- const ah=measure(addressLines.length?addressLines:['Saved address unavailable']),dh=measure(details),ch=Math.max(115,Math.max(ah,dh)+47);
+ const gap=14,cw=(w-gap)/2,inner=cw-30;
+ const firstFont='Times-Bold';
+ const measure=(ls:string[])=>ls.reduce((n,v,i)=>n+height(v,inner,i===0?16:11,i===0?firstFont:'Times-Roman')+3,0);
+ const ah=measure(addressLines.length?addressLines:['Saved address unavailable']),dh=measure(details),ch=Math.max(108,Math.max(ah,dh)+34);
  ensure(ch);
  const panel=(x:number,label:string,lines:string[])=>{
-  doc.roundedRect(x,y,cw,ch,4).fillAndStroke(cream,border);
-  caps(label,x+14,y+13,inner);
-  let yy=y+32;
-  for(const [i,v] of lines.entries()){const size=i===0?13:10,font=i===0?'Helvetica-Bold':'Helvetica';block(v,x+14,yy,inner,size,font);yy+=height(v,inner,size,font)+4;}
+  doc.roundedRect(x,y,cw,ch,4).lineWidth(.6).fillAndStroke(cream,border);
+  caps(label,x+15,y+11,inner);
+  let yy=y+28;
+  for(const [i,v] of lines.entries()){const size=i===0?16:11,font=i===0?firstFont:'Times-Roman';block(v,x+15,yy,inner,size,font);yy+=height(v,inner,size,font)+3;}
  };
- panel(m,'DELIVERY ADDRESS',addressLines.length?addressLines:['Saved address unavailable']);panel(m+cw+gap,'ORDER & PAYMENT STATUS',details);
- y+=ch+26;
- const col=[m+10,m+265,m+310,m+405];
+ panel(m,'DELIVERY ADDRESS',addressLines.length?addressLines:['Saved address unavailable']);panel(m+cw+gap,'ORDER STATUS',details);
+ y+=ch+18;
+ const col=[m+14,m+240,m+281,m+391],itemWidth=218;
  const tableHeader=()=>{
-  caps('ORDERED PIECES',m,y,w);y+=18;
-  doc.rect(m,y,w,26).fill(ink);
-  block('PRODUCT',col[0],y+8,245,8,'Helvetica-Bold','#FFFFFF');
-  block('QTY',col[1],y+8,35,8,'Helvetica-Bold','#FFFFFF','center');
-  block('UNIT PRICE',col[2],y+8,88,8,'Helvetica-Bold','#FFFFFF','right');
-  block('AMOUNT',col[3],y+8,right-col[3]-10,8,'Helvetica-Bold','#FFFFFF','right');y+=26;
+  caps('ORDERED ITEMS',m,y,w);y+=17;
+  doc.rect(m,y,w,25).fill(dark);
+  block('PRODUCT',col[0],y+7,itemWidth,10,'Times-Bold',ivory);
+  block('QTY',col[1],y+7,35,10,'Times-Bold',ivory,'center');
+  block('UNIT PRICE',col[2],y+7,100,10,'Times-Bold',ivory,'right');
+  block('AMOUNT',col[3],y+7,right-col[3]-12,10,'Times-Bold',ivory,'right');y+=25;
  };
- ensure(65);tableHeader();
+ ensure(80);tableHeader();
  for(const [index,i] of o.items.entries()){
-  const name=safe(i.name),meta='Size '+safe(i.size)+'  /  '+safe(i.color),sku='SKU: '+safe(i.sku);
-  const itemWidth=245;
-  const nh=height(name,itemWidth,12,'Helvetica-Bold'),mh=height(meta,itemWidth,9),sh=height(sku,itemWidth,8);
-  const rh=Math.max(62,nh+mh+sh+24);
+  const name=safe(i.name),meta=safe(i.color)+' / Size '+safe(i.size),sku='SKU: '+safe(i.sku);
+  const nh=height(name,itemWidth,15,'Times-Bold'),mh=height(meta,itemWidth,11,'Times-Italic'),sh=height(sku,itemWidth,10);
+  const rh=Math.max(64,nh+mh+sh+18);
   if(y+rh>limit){page();tableHeader();}
   ensure(rh);
-  if(index%2===0)doc.rect(m,y,w,rh).fill('#FAF8F4');
-  block(name,col[0],y+10,itemWidth,12,'Helvetica-Bold');
-  block(meta,col[0],y+12+nh,itemWidth,9,'Helvetica',muted);
-  block(sku,col[0],y+14+nh+mh,itemWidth,8,'Helvetica',muted);
-  block(String(i.quantity),col[1],y+12,35,10,'Helvetica',ink,'center');
-  block(amount(i.unitPricePaise),col[2],y+12,88,9,'Helvetica',ink,'right');
-  block(amount(i.unitPricePaise*i.quantity),col[3],y+12,right-col[3]-10,9,'Helvetica-Bold',ink,'right');
-  y+=rh;rule(y);
+  doc.rect(m,y,w,rh).lineWidth(.55).fillAndStroke(index%2===0?'#F5EDDF':ivory,border);
+  block(name,col[0],y+8,itemWidth,15,'Times-Bold');
+  block(meta,col[0],y+9+nh,itemWidth,11,'Times-Italic',muted);
+  block(sku,col[0],y+10+nh+mh,itemWidth,10);
+  block(String(i.quantity),col[1],y+13,35,11,'Times-Roman',dark,'center');
+  block(amount(i.unitPricePaise),col[2],y+13,100,10,'Times-Roman',dark,'right');
+  block(amount(i.unitPricePaise*i.quantity),col[3],y+13,right-col[3]-12,10,'Times-Bold',dark,'right');
+  y+=rh;
  }
- if(!o.items.length){block('No item records available.',m+10,y+12,w-20,10,'Helvetica',muted);y+=38;rule(y);}
- y+=20;
- const breakdown=[['Merchandise subtotal',amount(o.subtotalPaise)],['Test shipping',o.shippingPaise===0?'Free / INR 0.00':amount(o.shippingPaise)],['Discount'+(o.couponCode?' ('+safe(o.couponCode)+')':''),amount(o.discountPaise)]];
- const bx=m+232,bw=right-bx,priceW=106,labelW=bw-priceW-18;
- const bh=breakdown.reduce((n,[k,v])=>n+Math.max(21,height(k,labelW,10)+6,height(v,priceW,10)+6),0);
+ if(!o.items.length){block('No item records available.',m+10,y+10,w-20,10,'Times-Roman',muted);y+=32;rule(y);}
+ y+=18;
+ const breakdown=[['Merchandise subtotal',amount(o.subtotalPaise)],['Test shipping',o.shippingPaise===0?'Free / INR 0.00':amount(o.shippingPaise)],['Discount'+(o.couponCode?' ('+safe(o.couponCode)+')':''),o.discountPaise>0?'-'+amount(o.discountPaise):amount(0)]];
+ const bx=m+222,bw=right-bx,priceW=106,labelW=bw-priceW-10;
+ const bh=breakdown.reduce((n,[k,v])=>n+Math.max(18,height(k,labelW,11)+4,height(v,priceW,11)+4),0);
  const refundText=o.refund?.status==='PROCESSED'?'Processed test refund: '+amount(o.refund.amountPaise):'';
- const payHeight=bh+70+(refundText?height(refundText,bw,9)+6:0);
- ensure(Math.max(payHeight,112)+24);
- caps('AT YOUR SERVICE',m,y+1,210);
- block('Thank you for choosing LUMIÈRE.',m,y+20,210,14,'Times-Roman');
- block('This is a development order summary. No actual payment or shipment is represented.',m,y+43,207,9,'Helvetica',muted);
- caps('PAYMENT BREAKDOWN',bx,y+1,bw);
- let yy=y+20;
- for(const [k,v] of breakdown){const rh=Math.max(21,height(k,labelW,10)+6,height(v,priceW,10)+6);block(k,bx,yy,labelW,10);block(v,right-priceW,yy,priceW,10,'Helvetica',ink,'right');yy+=rh;}
- doc.roundedRect(bx,yy,bw,49,3).fill(ink);
- block('ORIGINAL ORDER TOTAL',bx+12,yy+7,bw-24,8,'Helvetica-Bold','#E4C9A0');
- block(amount(o.totalPaise),bx+12,yy+20,bw-24,19,'Times-Roman','#FFFFFF','right');yy+=55;
- if(refundText){block(refundText,bx,yy,bw,9,'Helvetica',muted);yy+=height(refundText,bw,9)+6;}
- y=Math.max(y+104,yy)+14;
- block('Not a tax invoice or proof of real payment.',m,y,w,9,'Helvetica',muted);
- // Footer is written on each page after the page count is known by the caller.
- for(let n=0;n<doc.bufferedPageRange().count;n++){doc.switchToPage(n);doc.strokeColor(bronze).lineWidth(.7).moveTo(m,doc.page.height-55).lineTo(right,doc.page.height-55).stroke();}
+ const payHeight=bh+64+(refundText?height(refundText,bw,10)+6:0);
+ ensure(Math.max(payHeight,112));
+ caps('AT YOUR SERVICE',m,y,200);
+ block('Thank you for choosing',m,y+19,200,18,'Times-Italic');
+ block('LUMIÈRE.',m,y+40,200,21,'Times-Roman');
+ block('For questions about this order, please use Customer care in your account.',m,y+70,194,11,'Times-Roman');
+ doc.strokeColor(border).lineWidth(.7).moveTo(bx-14,y).lineTo(bx-14,y+Math.max(payHeight,112)).stroke();
+ caps('PAYMENT BREAKDOWN',bx,y,bw);
+ let yy=y+18;
+ for(const [k,v] of breakdown){const rh=Math.max(18,height(k,labelW,11)+4,height(v,priceW,11)+4);block(k,bx,yy,labelW,11);block(v,right-priceW,yy,priceW,11,'Times-Roman',dark,'right');yy+=rh;rule(yy-1,bx,right);}
+ yy+=6;
+ const gradient=doc.linearGradient(bx,yy,right,yy+42).stop(0,'#956414').stop(1,'#69400B');
+ doc.roundedRect(bx,yy,bw,42,4).fill(gradient);
+ block('ORDER TOTAL',bx+10,yy+15,88,9,'Times-Bold',ivory);
+ doc.strokeColor('#DBC396').lineWidth(.6).moveTo(bx+94,yy+8).lineTo(bx+94,yy+34).stroke();
+ const total=amount(o.totalPaise),tw=bw-108;
+ doc.font('Times-Roman').fontSize(22);const ts=Math.min(22,22*tw/Math.max(1,doc.widthOfString(total)));
+ block(total,bx+100,yy+10,tw,ts,'Times-Roman',ivory,'right');yy+=48;
+ if(refundText)block(refundText,bx,yy,bw,10,'Times-Roman',muted);
+ // Fixed footer for every page. No fictional contact or payment information.
+ const range=doc.bufferedPageRange();
+ for(let n=0;n<range.count;n++){
+  doc.switchToPage(range.start+n);const fy=doc.page.height-83;
+  rule(fy);caps('A NOTE FROM LUMIÈRE',m,fy+8,w,'center');
+  block('Development / test only. No actual payment or shipment.',m,fy+22,w,10,'Times-Italic',dark,'center');
+  block('Not a tax invoice or proof of real payment.',m,fy+36,w,9,'Times-Roman',muted,'center');
+  rule(fy+51,center-67,center-10);rule(fy+51,center+10,center+67);
+  doc.moveTo(center,fy+47).lineTo(center+4,fy+51).lineTo(center,fy+55).lineTo(center-4,fy+51).closePath().fill(bronze);
+ }
 }
 export function renderOrderDocument(o:DocumentOrder,kind:DocumentKind):Promise<Buffer>{
  if(process.env.NODE_ENV==='production')throw new HttpError(404,'Test documents are unavailable.');
@@ -165,7 +192,7 @@ export function renderOrderDocument(o:DocumentOrder,kind:DocumentKind):Promise<B
    }
    }
    const range=doc.bufferedPageRange();if(label&&range.count!==1)throw new HttpError(422,'Details do not fit a single test shipping label.');
-   for(let n=0;n<range.count;n++){doc.switchToPage(range.start+n);doc.font('Helvetica').fontSize(8).fillColor(muted).text('TEST ONLY / '+(n+1)+' of '+range.count,margin,doc.page.height-margin-12,{width:width(),align:'right',lineBreak:false});}
+   for(let n=0;n<range.count;n++){doc.switchToPage(range.start+n);doc.font('Helvetica').fontSize(8).fillColor(muted).text(kind==='summary'?String(n+1).padStart(2,'0')+' / '+String(range.count).padStart(2,'0'):'TEST ONLY / '+(n+1)+' of '+range.count,margin,doc.page.height-margin-12,{width:width(),align:'right',lineBreak:false});}
    doc.end();
   }catch(e){doc.destroy();reject(e);}
  });

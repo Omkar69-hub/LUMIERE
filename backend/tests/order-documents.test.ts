@@ -12,3 +12,5 @@ test('long summaries paginate and labels reject unprintable data',async()=>{
  await assert.rejects(async()=>renderOrderDocument({...order,addressSnapshot:{}},'packing-slip'),/complete saved/);
  assert.equal(canPrepareShipment({...order,fulfillment:'DELIVERED'}),false);
 });
+
+test('Heritage summary preserves a single page for typical COD and paid orders',async()=>{for(const status of ['PENDING_PAYMENT','PAID','CANCELLED']){const pdf=await renderOrderDocument({...order,status},'summary');assert.equal((pdf.toString('latin1').match(/\/Type \/Page\b/g)||[]).length,1);}});
