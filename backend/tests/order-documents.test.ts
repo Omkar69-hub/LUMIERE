@@ -14,3 +14,10 @@ test('long summaries paginate and labels reject unprintable data',async()=>{
 });
 
 test('Heritage summary preserves a single page for typical COD and paid orders',async()=>{for(const status of ['PENDING_PAYMENT','PAID','CANCELLED']){const pdf=await renderOrderDocument({...order,status},'summary');assert.equal((pdf.toString('latin1').match(/\/Type \/Page\b/g)||[]).length,1);}});
+
+test('Heritage packing slips paginate and test labels stay single-page',async()=>{
+ const single=await renderOrderDocument(order,'packing-slip');assert.equal((single.toString('latin1').match(/\/Type \/Page\b/g)||[]).length,1);
+ const multi=await renderOrderDocument({...order,items:Array.from({length:30},()=>({...order.items[0],name:'Long product description '.repeat(4)}))},'packing-slip');assert.ok((multi.toString('latin1').match(/\/Type \/Page\b/g)||[]).length>1);
+ const paid=await renderOrderDocument({...order,status:'PAID',fulfillment:'PACKING'},'shipping-label');assert.equal((paid.toString('latin1').match(/\/Type \/Page\b/g)||[]).length,1);
+ await assert.rejects(async()=>renderOrderDocument({...order,addressSnapshot:{...order.addressSnapshot,line1:'Very long test address '.repeat(200)}},'shipping-label'),/too long/);
+});
