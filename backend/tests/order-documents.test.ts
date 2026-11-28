@@ -7,7 +7,7 @@ test('three test PDFs are generated with correct page sizes',async()=>{
 });
 test('long summaries paginate and labels reject unprintable data',async()=>{
  const long=await renderOrderDocument({...order,items:Array.from({length:70},()=>({...order.items[0],name:'Long product description '.repeat(4)}))},'summary');assert.ok((long.toString('latin1').match(/\/Type \/Page\b/g)||[]).length>1);
- await assert.rejects(()=>renderOrderDocument({...order,addressSnapshot:{...order.addressSnapshot,recipient:'नाम'}},'shipping-label'),/Latin-script/);
+ await assert.rejects(async()=>renderOrderDocument({...order,addressSnapshot:{...order.addressSnapshot,recipient:'नाम'}},'shipping-label'),/Latin-script/);
  await assert.rejects(async()=>renderOrderDocument({...order,status:'CANCELLED'},'shipping-label'),/active confirmed/);
  await assert.rejects(async()=>renderOrderDocument({...order,addressSnapshot:{}},'packing-slip'),/complete saved/);
  assert.equal(canPrepareShipment({...order,fulfillment:'DELIVERED'}),false);

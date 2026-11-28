@@ -89,6 +89,8 @@ test('checkout reservation, idempotency, cancellation and captured payment',asyn
   const delivery=(await codPost('/api/orders',{...codBody,requestKey:randomUUID()}).expect(201)).body;
   await db.user.create({data:{email:adminEmail,name:'COD admin',mobile:'9999999999',role:'ADMIN',passwordHash:await hashPassword(password),termsAcceptedAt:new Date()}});
   await admin.post('/api/auth/login').set('Origin',origin).send({email:adminEmail,password}).expect(200);
+  for(const kind of ['shipping-label','packing-slip']){const doc=await admin.get('/api/admin/orders/'+delivery.id+'/documents/'+kind).expect(200).expect('Content-Type',/application\/pdf/);assert.equal(doc.body.subarray(0,5).toString(),'%PDF-');}
+  await customer.get('/api/admin/orders/'+delivery.id+'/documents/packing-slip').expect(403);
   const advance=(body:unknown)=>admin.patch('/api/admin/orders/'+delivery.id+'/fulfillment').set('Origin',origin).send(body);
   await customer.patch('/api/admin/orders/'+delivery.id+'/fulfillment').set('Origin',origin).send({status:'PACKING'}).expect(403);
   await advance({status:'PACKING'}).expect(200);
