@@ -5,7 +5,8 @@ import { Prisma } from '../../generated/prisma/client.js';
 import { wrap,HttpError } from '../../middleware/http.js';
 import { requireUser,requireAdmin } from '../auth/session.js';
 import {queueOrderNotice} from '../orders/notifications.js';
-import {sendOrderDocument} from '../orders/documents.js';
+import {sendOrderDocument,renderOrderDocument} from '../orders/documents.js';
+import {storedZip} from './shipment-zip.js';
 import { confirmPayment } from '../orders/routes.js';
 import type { Gateway } from '../payments/gateway.js';
 const uuid=z.string().uuid();
@@ -40,6 +41,42 @@ export function adminRoutes(gateway?:Gateway){
    if(suspended){await tx.session.deleteMany({where:{userId:id}});await tx.authToken.deleteMany({where:{userId:id}});}
    await audit(tx,res.locals.user.id,suspended?'CUSTOMER_SUSPEND':'CUSTOMER_RESTORE',id);
   });res.json({message:'Customer status updated.'});
+ }));
+
+ // A shipment is an eligible existing order, never a second record.
+ router.get('/shipments',wrap(async(req,res)=>{
+  const stages=['UNFULFILLED','PACKING','SHIPPED','OUT_FOR_DELIVERY','DELIVERED'] as const;
+  const {page,q,stage,carrier,from,to}=pageSchema.extend({stage:z.enum(stages).optional(),carrier:z.string().trim().max(100).optional(),from:z.iso.date().optional(),to:z.iso.date().optional()}).parse(req.query);
+  if(from&&to&&from>to)throw new HttpError(400,'Start date must be before or equal to end date.');
+  const eligible:Prisma.OrderWhereInput={OR:[{status:'PAID'},{status:'PENDING_PAYMENT',paymentMethod:'COD',fulfillment:{not:'DELIVERED'}}]};
+  const where:Prisma.OrderWhereInput={AND:[eligible,...(stage?[{fulfillment:stage}]:[]),...(carrier?[{carrier:{contains:carrier,mode:'insensitive' as const}}]:[]),...(q?[{OR:[{id:{contains:q,mode:'insensitive' as const}},{trackingNumber:{contains:q,mode:'insensitive' as const}},{user:{name:{contains:q,mode:'insensitive' as const}}}]}]:[]),...(from||to?[{createdAt:{...(from?{gte:new Date(from+'T00:00:00+05:30')}:{}),...(to?{lt:new Date(new Date(to+'T00:00:00+05:30').getTime()+86400000)}:{})}}]:[])]};
+  const [rows,groups]=await db.$transaction([
+   db.order.findMany({where,orderBy:[{createdAt:'desc'},{id:'asc'}],skip:(page-1)*25,take:26,select:{id:true,createdAt:true,fulfillment:true,status:true,paymentMethod:true,carrier:true,trackingNumber:true,totalPaise:true,user:{select:{name:true}},items:{select:{quantity:true}}}}),
+   db.order.groupBy({by:['fulfillment'],where:eligible,_count:{_all:true}})
+  ],{isolationLevel:Prisma.TransactionIsolationLevel.RepeatableRead});
+  res.json({items:rows.slice(0,25).map(({items,...row})=>({...row,units:items.reduce((sum,item)=>sum+item.quantity,0)})),hasMore:rows.length>25,counts:Object.fromEntries(stages.map(s=>[s,groups.find(g=>g.fulfillment===s)?._count._all??0]))});
+ }));
+ router.get('/shipments/:id/history',wrap(async(req,res)=>{
+  const id=uuid.parse(req.params.id);
+  const order=await db.order.findUnique({where:{id},select:{id:true,status:true,paymentMethod:true,fulfillment:true}});
+  if(!order||!(order.status==='PAID'||(order.status==='PENDING_PAYMENT'&&order.paymentMethod==='COD'&&order.fulfillment!=='DELIVERED')))throw new HttpError(404,'Shipment not found.');
+  const events=await db.adminEvent.findMany({where:{targetId:id,OR:[{action:{startsWith:'FULFILLMENT_'}},{action:'COD_TEST_CASH_COLLECTED'}]},orderBy:[{createdAt:'asc'},{id:'asc'}],take:50,select:{id:true,action:true,createdAt:true,actor:{select:{name:true}}}});
+  res.json({events});
+ }));
+ router.post('/shipments/documents',wrap(async(req,res)=>{
+  if(process.env.NODE_ENV==='production')throw new HttpError(404,'Test documents are unavailable.');
+  const {ids,kind}=z.object({ids:z.array(uuid).min(1).max(10).refine(v=>new Set(v).size===v.length,'Duplicate orders are not allowed.'),kind:z.enum(['shipping-label','packing-slip'])}).strict().parse(req.body);
+  const orders=await db.order.findMany({where:{id:{in:ids}},include:{items:{orderBy:{id:'asc'}},refund:{select:{status:true,amountPaise:true}}}});
+  if(orders.length!==ids.length)throw new HttpError(404,'A selected order no longer exists.');
+  const files:{name:string;data:Buffer}[]=[];let total=0;
+  for(const id of ids){
+   const order=orders.find(o=>o.id===id)!;
+   const data=await renderOrderDocument(order,kind);
+   total+=data.length;if(total>20*1024*1024)throw new HttpError(422,'Batch is too large. Select fewer orders.');
+   files.push({name:'lumiere-'+kind+'-'+id+'.pdf',data});
+  }
+  const zip=storedZip(files);
+  res.set({'Content-Type':'application/zip','Content-Disposition':'attachment; filename="lumiere-test-'+kind+'s.zip"','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}).send(zip);
  }));
  router.get('/orders',wrap(async(req,res)=>{
   const {page,q,status,fulfillment,method}=pageSchema.extend({status:z.enum(['PENDING_PAYMENT','PAID','CANCELLED']).optional(),fulfillment:z.enum(['UNFULFILLED','PACKING','SHIPPED','OUT_FOR_DELIVERY','DELIVERED']).optional(),method:z.enum(['COD','ONLINE']).optional()}).parse(req.query);

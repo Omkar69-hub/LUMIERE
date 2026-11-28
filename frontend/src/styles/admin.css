@@ -34,3 +34,5 @@
  .admin-shell .pagination{gap:.4rem;flex-wrap:wrap}
  .admin-shell .pagination button{padding:.5rem .65rem;font-size:.8rem}
 }
+
+.shipment-metrics{grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))}.shipment-select{display:flex;align-items:center;gap:.5rem}.shipment-select input{width:1rem;height:1rem;accent-color:#80694f;flex:none}.admin-shipments-table td:nth-child(4){overflow-wrap:anywhere}.admin-shipments-table button{white-space:normal}

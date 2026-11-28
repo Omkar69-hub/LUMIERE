@@ -91,6 +91,17 @@ test('checkout reservation, idempotency, cancellation and captured payment',asyn
   await admin.post('/api/auth/login').set('Origin',origin).send({email:adminEmail,password}).expect(200);
   for(const kind of ['shipping-label','packing-slip']){const doc=await admin.get('/api/admin/orders/'+delivery.id+'/documents/'+kind).expect(200).expect('Content-Type',/application\/pdf/);assert.equal(doc.body.subarray(0,5).toString(),'%PDF-');}
   await customer.get('/api/admin/orders/'+delivery.id+'/documents/packing-slip').expect(403);
+  await customer.get('/api/admin/shipments').expect(403);
+  await customer.get('/api/admin/shipments/'+delivery.id+'/history').expect(403);
+  await customer.post('/api/admin/shipments/documents').set('Origin',origin).send({ids:[delivery.id],kind:'packing-slip'}).expect(403);
+  const shipment=(await admin.get('/api/admin/shipments').query({q:delivery.id,stage:'UNFULFILLED'}).expect(200)).body;
+  assert.equal(shipment.items.length,1);assert.equal(shipment.items[0].id,delivery.id);assert.equal(shipment.items[0].units,1);assert.ok(shipment.counts.UNFULFILLED>=1);
+  assert.equal((await admin.get('/api/admin/shipments').query({q:co.id}).expect(200)).body.items.length,0);
+  await admin.get('/api/admin/shipments').query({from:'2026-11-30',to:'2026-11-01'}).expect(400);
+  const bulk=await admin.post('/api/admin/shipments/documents').set('Origin',origin).send({ids:[delivery.id],kind:'packing-slip'}).buffer(true).parse((res,cb)=>{const chunks:Buffer[]=[];res.on('data',c=>chunks.push(Buffer.from(c)));res.on('end',()=>cb(null,Buffer.concat(chunks)));}).expect(200).expect('Content-Type',/application\/zip/);
+  assert.equal(bulk.body.readUInt32LE(0),0x04034b50);assert.ok(bulk.body.includes(Buffer.from('%PDF-')));assert.match(bulk.headers['cache-control'],/no-store/);
+  await admin.post('/api/admin/shipments/documents').set('Origin',origin).send({ids:[delivery.id,co.id],kind:'shipping-label'}).expect(409);
+  await admin.post('/api/admin/shipments/documents').set('Origin',origin).send({ids:[delivery.id,delivery.id],kind:'shipping-label'}).expect(400);
   const advance=(body:unknown)=>admin.patch('/api/admin/orders/'+delivery.id+'/fulfillment').set('Origin',origin).send(body);
   await customer.patch('/api/admin/orders/'+delivery.id+'/fulfillment').set('Origin',origin).send({status:'PACKING'}).expect(403);
   await advance({status:'PACKING'}).expect(200);
@@ -102,6 +113,9 @@ test('checkout reservation, idempotency, cancellation and captured payment',asyn
   await advance({status:'DELIVERED',cashCollected:true}).expect(200);
   await advance({status:'DELIVERED',cashCollected:true}).expect(409);
   const delivered=(await customer.get('/api/orders/'+delivery.id).expect(200)).body;
+  const history=(await admin.get('/api/admin/shipments/'+delivery.id+'/history').expect(200)).body.events;
+  assert.ok(history.some((e:{action:string})=>e.action==='FULFILLMENT_DELIVERED'));
+  assert.equal((await admin.get('/api/admin/shipments').query({q:delivery.id,carrier:'Test carrier',stage:'DELIVERED'}).expect(200)).body.items.length,1);
   assert.equal(delivered.status,'PAID');assert.equal(delivered.fulfillment,'DELIVERED');assert.ok(delivered.paidAt);
   const notices=await db.orderNotification.findMany({where:{orderId:delivery.id,channel:'EMAIL'},orderBy:{createdAt:'asc'}});assert.deepEqual(notices.map(n=>n.event),['CONFIRMED','PACKING','SHIPPED','OUT_FOR_DELIVERY','DELIVERED']);
   assert.equal(await db.orderNotification.count({where:{orderId:next.id,event:'CONFIRMED'}}),1);
