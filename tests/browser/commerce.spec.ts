@@ -29,6 +29,16 @@ test('administrator publishes a product; customer saves, shops and contacts supp
   await page.getByRole('button',{name:'Create draft'}).click();
   const row=page.locator('.admin-products-table tbody tr').filter({hasText:name});await expect(row).toContainText('Draft');await row.getByRole('button',{name:'Manage'}).click();await page.getByRole('button',{name:'Publish',exact:true}).click();await expect(row).toContainText('Published');
   await page.screenshot({path:info.outputPath('admin-product.png'),fullPage:true});
+  if(isMobile)await page.getByRole('button',{name:'Sections',exact:true}).click();
+  await page.getByRole('navigation',{name:'Admin sections'}).getByRole('button',{name:'Shipments',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Shipment workspace'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'View queue'})).toHaveCount(5);
+  await page.getByLabel('Search shipments').fill(tag);
+  await page.getByRole('button',{name:'Apply filters'}).click();
+  await expect(page.getByText('No shipments match these filters.')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Download labels (ZIP)'})).toBeDisabled();
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+  await page.screenshot({path:info.outputPath('admin-shipments.png'),fullPage:true});
   await b.goto(origin+'/login');await b.getByLabel('Email address').fill(customer);await b.getByLabel('Password',{exact:true}).fill(password);await b.getByRole('button',{name:'Sign in',exact:true}).click();await expect(b).toHaveURL(/\/account$/);await expect(b.getByRole('heading',{name:'My Account',exact:true})).toBeVisible();await expect(b.getByRole('link',{name:'Admin console',exact:true})).toHaveCount(0);
   await b.goto(origin+'/products/'+tag);await expect(b.getByRole('heading',{name})).toBeVisible();await b.getByRole('radio',{name:'M / Ivory'}).check();await b.getByRole('button',{name:'Add / update bag'}).click();await expect(b.getByText('Shopping bag updated.')).toBeVisible();await b.getByRole('button',{name:'Save to wishlist'}).click();await expect(b.getByText('Piece saved.')).toBeVisible();
   await b.goto(origin+'/cart');await expect(b.getByRole('link',{name,exact:true})).toBeVisible();await b.getByLabel('Quantity').selectOption('2');await expect(b.getByText('₹3,000',{exact:true}).first()).toBeVisible();
