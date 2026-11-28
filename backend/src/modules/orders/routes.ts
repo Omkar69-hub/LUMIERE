@@ -7,6 +7,7 @@ import {couponCode,calculateDiscount} from '../commerce/coupons.js';
 import { requireUser,requireCustomer } from '../auth/session.js';
 import type { Gateway,GatewayPayment } from '../payments/gateway.js';
 import {queueOrderNotice,whatsappTestAvailable} from './notifications.js';
+import {sendOrderDocument} from './documents.js';
 const uuid=z.string().uuid();
 const orderInclude={items:true} as const;
 const publicOrder=(o:Prisma.OrderGetPayload<{include:typeof orderInclude}>)=>({id:o.id,whatsappOptedIn:!!o.whatsappNumber,paymentMethod:o.paymentMethod,status:o.status,gatewayState:o.gatewayState,fulfillment:o.fulfillment,trackingNumber:o.trackingNumber,carrier:o.carrier,subtotalPaise:o.subtotalPaise,shippingPaise:o.shippingPaise,discountPaise:o.discountPaise,couponCode:o.couponCode,totalPaise:o.totalPaise,address:o.addressSnapshot,items:o.items,createdAt:o.createdAt,paidAt:o.paidAt});
@@ -45,6 +46,7 @@ export function orderRoutes(gateway?:Gateway){
    const discount=await calculateDiscount(tx,subtotalPaise,coupon);return {addressId:addressId??null,subtotalPaise,shippingPaise:delivery.shippingPaise,estimate:delivery.estimate,...discount,totalPaise:subtotalPaise+delivery.shippingPaise-discount.discountPaise};
   });res.json(quote);
  }));
+ router.get('/:id/documents/summary',wrap(async(req,res)=>{const o=await db.order.findFirst({where:{id:uuid.parse(req.params.id),userId:res.locals.user.id},include:{items:{orderBy:{id:'asc'}},refund:{select:{status:true,amountPaise:true}}}});if(!o)throw new HttpError(404,'Order not found.');await sendOrderDocument(res,o,'summary');}));
  router.get('/:id',wrap(async(req,res)=>{const o=await db.order.findFirst({where:{id:uuid.parse(req.params.id),userId:res.locals.user.id},include:{items:{include:{variant:{select:{product:{select:{images:{orderBy:{position:'asc'},take:1,select:{url:true}}}}}}}}}});if(!o)throw new HttpError(404,'Order not found.');res.json({...publicOrder(o),items:o.items.map(({variant,...item})=>({...item,imageUrl:variant.product.images[0]?.url??null}))});}));
  router.post('/',wrap(async(req,res)=>{
   verified(res);

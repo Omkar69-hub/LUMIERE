@@ -35,6 +35,17 @@ test('admin authorization, customer suspension and safe fulfillment',async()=>{
  assert.equal((await unrelated.get('/api/orders').expect(200)).body.items.length,0);
  await unrelated.get('/api/orders/'+o.id).expect(404);
  await unrelated.get('/api/returns/'+o.id).expect(404);
+ const summary='/api/orders/'+o.id+'/documents/summary',adminDoc='/api/admin/orders/'+o.id+'/documents/';
+ await request(app).get(summary).expect(401);
+ await unrelated.get(summary).expect(404);
+ await customer.get(adminDoc+'summary').expect(403);
+ await customer.get(adminDoc+'shipping-label').expect(403);
+ await admin.get(summary).expect(403);
+ for(const response of [await customer.get(summary).expect(200).expect('Content-Type',/application\/pdf/),await admin.get(adminDoc+'summary').expect(200)]){
+  assert.match(response.headers['content-disposition'],/attachment/);assert.match(response.headers['cache-control'],/no-store/);assert.equal(response.body.subarray(0,5).toString(),'%PDF-');
+ }
+ await admin.get(adminDoc+'shipping-label').expect(409);
+ await admin.get(adminDoc+'packing-slip').expect(409);
  const globalOrders=(await admin.get('/api/admin/orders').query({q:o.id}).expect(200)).body.items;assert.equal(globalOrders.length,1);assert.equal(globalOrders[0].id,o.id);
  await login(unrelated,a.email).expect(200);await unrelated.get('/api/users/me/overview').expect(403);await unrelated.get('/api/admin/orders').expect(200);
  await login(unrelated,c.email).expect(200);await unrelated.get('/api/admin/orders').expect(403);assert.equal((await unrelated.get('/api/users/me/overview').expect(200)).body.recent.id,o.id);
